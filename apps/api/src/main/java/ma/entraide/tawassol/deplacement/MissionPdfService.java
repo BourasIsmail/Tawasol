@@ -31,7 +31,7 @@ public class MissionPdfService {
     public record Pdf(byte[] contenu, String nomFichier, String sha256) {}
 
     private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd/MM/yyyy"), H = DateTimeFormatter.ofPattern("HH:mm");
-    private static final Color VERT = new Color(11, 93, 75), GRIS = new Color(90, 100, 95), TRAIT = new Color(190, 200, 195);
+    private static final Color VERT = new Color(12, 71, 151), GRIS = new Color(90, 102, 117), TRAIT = new Color(190, 198, 210);
 
     private final JdbcTemplate jdbc;
     private final VerificationService verification;
@@ -285,7 +285,7 @@ public class MissionPdfService {
     }
 
     private PdfPCell entete(String t, Fonts f) {
-        PdfPCell c = new PdfPCell(new Phrase(t, f.frH)); c.setBackgroundColor(new Color(238, 244, 241)); c.setPadding(4); c.setHorizontalAlignment(Element.ALIGN_CENTER);
+        PdfPCell c = new PdfPCell(new Phrase(t, f.frH)); c.setBackgroundColor(new Color(232, 238, 247)); c.setPadding(4); c.setHorizontalAlignment(Element.ALIGN_CENTER);
         c.setBorderColor(TRAIT); c.setBorderWidth(0.6f); return c;
     }
 

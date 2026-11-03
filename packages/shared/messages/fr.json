@@ -819,5 +819,15 @@
     "by": "Par",
     "next": "Suivant",
     "prev": "Précédent"
+  },
+  "shell": {
+    "panelTitle": "Votre espace RH, simple et sécurisé",
+    "p1t": "Dossier et demandes",
+    "p1d": "Fiche, congés, attestations et suivi de chaque demande.",
+    "p2t": "Déplacements et paie",
+    "p2d": "Ordres de mission, indemnités, bulletins et crédits.",
+    "p3t": "Validation transparente",
+    "p3d": "Chaque demande suit la chaîne hiérarchique, étape par étape.",
+    "foot": "Royaume du Maroc - Entraide Nationale"
   }
 }

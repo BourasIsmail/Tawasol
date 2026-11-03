@@ -2,20 +2,10 @@
 
 import { useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
+import { AuthShell } from './AuthShell';
 
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
-  const t = useTranslations();
-  return (
-    <main className="login-main">
-      <div style={{ width: 'min(400px,100%)', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <header style={{ textAlign: 'center' }}>
-          <h1 style={{ margin: 0 }}>{t('app.name')}</h1>
-          <p className="muted" style={{ margin: 0 }}>{title}</p>
-        </header>
-        <div className="card">{children}</div>
-      </div>
-    </main>
-  );
+  return <AuthShell title={title}><div className="card">{children}</div></AuthShell>;
 }
 
 export function policyChecks(p: string) {
