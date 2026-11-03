@@ -16,7 +16,7 @@ Portail RH de l'Entraide Nationale (Maroc) : dossier agent, demandes administrat
 
 ```bash
 cp .env.example .env
-# renseigner DB_PASSWORD, DB_ROOT_PASSWORD, MINIO_ROOT_PASSWORD, JWT_SECRET (openssl rand -base64 48)
+# renseigner DB_PASSWORD, DB_ROOT_PASSWORD, JWT_SECRET (openssl rand -base64 48)
 # et TAWASSOL_ADMIN_INITIAL_PASSWORD (+ TAWASSOL_DEMO_PASSWORD pour la démo)
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
