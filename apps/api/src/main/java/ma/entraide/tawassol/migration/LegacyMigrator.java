@@ -22,6 +22,8 @@ public class LegacyMigrator {
     private final String runId = UUID.randomUUID().toString();
     private final Map<String, Map<String, Object>> compteurs = new LinkedHashMap<>();
     private final List<Map<String, Object>> anomalies = new ArrayList<>();
+    private final Map<String, Long> anomaliesParCode = new TreeMap<>();
+    private static final int DETAIL_MAX_PAR_CODE = 200;
     private final List<String[]> controleNoms = new ArrayList<>();
     private final List<Map<String, Object>> comptesPerimetres = new ArrayList<>();
 
@@ -30,6 +32,7 @@ public class LegacyMigrator {
     private final Map<Long, String> delegation = new HashMap<>();
     private final Map<Long, String> delegationSymbole = new HashMap<>();
     private final Map<Long, String> structureUnite = new HashMap<>();
+    private final Map<Long, String> structureCode = new HashMap<>();
     private final Map<Long, String> grade = new HashMap<>();
     private final Map<Long, String> responsabilite = new HashMap<>();
     private final Map<Long, String> programme = new HashMap<>();
@@ -49,9 +52,7 @@ public class LegacyMigrator {
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("run_id", runId);
         r.put("tables", compteurs);
-        Map<String, Long> parCode = new TreeMap<>();
-        for (Map<String, Object> a : anomalies) parCode.merge((String) a.get("code"), 1L, Long::sum);
-        r.put("anomalies_par_code", parCode);
+        r.put("anomalies_par_code", anomaliesParCode);
         r.put("anomalies_echantillon", anomalies.size() > 60 ? anomalies.subList(0, 60) : anomalies);
         r.put("noms_a_controler", controleNoms.size());
         return r;
@@ -69,10 +70,14 @@ public class LegacyMigrator {
         comptes();
         verifierBaremes();
         deplacements();
+        deplacementsProgramme();
         conges();
         messages();
+        salaires();
+        notes();
         initialiserCompteurs();
         reconciliation();
+        comptesDeTest();
     }
 
     // ------------------------------------------------------------------ utilitaires
@@ -82,6 +87,8 @@ public class LegacyMigrator {
     }
     private void inc(String table, String k) { Map<String, Object> m = c(table); m.put(k, (Integer) m.get(k) + 1); }
     private void anomalie(String code, String table, Object id, String detail) {
+        long n = anomaliesParCode.merge(code, 1L, Long::sum);
+        if (n > DETAIL_MAX_PAR_CODE) return;     // le total exact est dans anomalies_par_code ; le détail est limité
         Map<String, Object> a = new LinkedHashMap<>(); a.put("code", code); a.put("table", table); a.put("id_legacy", String.valueOf(id)); a.put("detail", detail); anomalies.add(a);
     }
     private String newId() { return UUID.randomUUID().toString(); }
@@ -201,6 +208,7 @@ public class LegacyMigrator {
         String t = "structures";
         for (Map<String, Object> r : src.queryForList("SELECT * FROM structures ORDER BY id")) {
             inc(t, "lus"); long id = lng(r.get("id"));
+            structureCode.put(id, (String) r.get("code"));
             String cible = idParLegacy("structure", id);
             if (cible != null) { inc(t, "deja_presents"); structureUnite.put(id, cible); continue; }
             if (delegationSiege == null) { inc(t, "ignores"); continue; }
@@ -354,8 +362,14 @@ public class LegacyMigrator {
 
             Long structLegacy = r.get("structure_id") == null ? null : lng(r.get("structure_id"));
             String unite = structLegacy == null ? null : structureUnite.get(structLegacy);
-            String structure = unite != null ? unite : structureAcompleter(aff);
-            boolean aCompleter = unite == null;
+            // « AUTRE » (org_autre) n'est pas une unité : ces agents relèvent de leur délégation. Une unité centrale ne rattache que les agents affectés au siège.
+            boolean autre = unite != null && "org_autre".equals(structureCode.get(structLegacy));
+            boolean affecteAuSiege = delegation.get(aff) != null && delegation.get(aff).equals(delegationSiege);
+            boolean rattacheAUnite = unite != null && !autre && affecteAuSiege;
+            if (unite != null && !autre && !affecteAuSiege) anomalie("UNITE_CENTRALE_HORS_SIEGE", t, id, "Unité centrale pour un agent affecté hors du siège : rattaché à sa délégation");
+            String structure = rattacheAUnite ? unite : structureAcompleter(aff);
+            boolean aCompleter = !rattacheAUnite;
+            if (autre) unite = null;
             boolean sortie = r.get("situation_administrative_id") != null && lng(r.get("situation_administrative_id")) == 2;
             boolean supprime = r.get("deleted_at") != null;
             Long gl = r.get("grade_id") == null ? null : lng(r.get("grade_id"));
@@ -460,11 +474,18 @@ public class LegacyMigrator {
         return personnelParLegacy.get(legacy);
     }
 
+    private final Map<String, Map<Long, String>> codes = new HashMap<>();
     private String codeParLegacy(String table, String colonneCode, Object id) {
         if (id == null) return null;
-        List<String> l = src.queryForList("SELECT " + colonneCode + " FROM " + table + " WHERE id = ?", String.class, id);
-        return l.isEmpty() ? null : l.get(0);
+        Map<Long, String> m = codes.computeIfAbsent(table, t -> {
+            Map<Long, String> x = new HashMap<>();
+            src.query("SELECT id, " + colonneCode + " FROM " + t, rs -> { x.put(rs.getLong(1), rs.getString(2)); });
+            return x;
+        });
+        return m.get(lng(id));
     }
+
+    private Set<Long> dejaRepris(String sql) { return new HashSet<>(dst.queryForList(sql, Long.class)); }
 
     private static final java.util.regex.Pattern NUM_ETAT = java.util.regex.Pattern.compile("([A-Za-z]+)\\s*-\\s*(\\d+)\\s*/\\s*(\\d{4})");
 
@@ -475,9 +496,10 @@ public class LegacyMigrator {
         Map<Long, String> statut = new HashMap<>();
         for (Map<String, Object> r : src.queryForList("SELECT id, code FROM deplacement_programme_statuses")) statut.put(lng(r.get("id")), (String) r.get("code"));
         RepasEngine.Seuils seuils = RepasEngine.Seuils.parDefaut();
+        Set<Long> dejaPropres = dejaRepris("SELECT id_legacy FROM ordre_mission WHERE source_legacy = 'propre'");
         for (Map<String, Object> r : src.queryForList("SELECT * FROM deplacement_propres ORDER BY id")) {
             inc(t, "lus"); long id = lng(r.get("id"));
-            if (dst.queryForObject("SELECT COUNT(*) FROM ordre_mission WHERE source_legacy = 'propre' AND id_legacy = ?", Integer.class, id) > 0) { inc(t, "deja_presents"); continue; }
+            if (dejaPropres.contains(id)) { inc(t, "deja_presents"); continue; }
             String pers = r.get("personne_id") == null ? null : personnelDe(lng(r.get("personne_id")));
             if (pers == null) { anomalie("PERSONNE_INCONNUE", t, id, "Personne absente de la cible : mission non reprise"); inc(t, "ignores"); continue; }
             String code = statut.get(r.get("status_id") == null ? -1L : lng(r.get("status_id")));
@@ -548,9 +570,6 @@ public class LegacyMigrator {
                     cible, nouveau, "Repris de Suivi RH (statut d'origine : " + code + ")", java.sql.Timestamp.valueOf(maj == null ? d : toLdt(maj)));
             inc(t, "crees"); mapper(t, id, "ordre_mission", cible);
         }
-        Integer progs = src.queryForObject("SELECT COUNT(*) FROM deplacement_programmes", Integer.class);
-        if (progs != null && progs > 0) anomalie("DEPLACEMENTS_PROGRAMME_A_TRAITER", "deplacement_programmes", "*", progs + " missions de programme non reprises : planification à confirmer avant reprise de l'historique");
-        else compteurs.computeIfAbsent("deplacement_programmes", k -> { Map<String, Object> m = new LinkedHashMap<>(); m.put("lus", 0); m.put("crees", 0); m.put("deja_presents", 0); m.put("ignores", 0); return m; });
     }
 
     private static java.time.LocalDateTime toLdt(Object o) {
@@ -571,7 +590,7 @@ public class LegacyMigrator {
     private static final Map<String, String> TYPE_CONGE = Map.of(
             "conge_administratif_annuel", "CONGE_ANNUEL", "conge_administratif_exceptionnel", "CONGE_EXCEPTION", "permission_absence", "CONGE_PERMISSION_ABSENCE",
             "conge_maladie_courte_duree", "CONGE_MALADIE", "conge_maladie_moyenne_duree", "CONGE_MALADIE", "conge_maladie_longue_duree", "CONGE_MALADIE",
-            "conge_maladie_ou_blessures_pendant_exercice_des_fonctions", "CONGE_ACCIDENT_TRAVAIL", "conge_de_maternite", "CONGE_MATERNITE", "conge_sans_solde", "CONGE_SANS_SOLDE");
+            "conge_maladie_ou_blessures_pendant_exercice_des_fonctions", "CONGE_ACCIDENT_TRAVAIL", "conge_de_maternite", "CONGE_MATERNITE", "conge_de_paternite", "CONGE_MATERNITE", "conge_sans_solde", "CONGE_SANS_SOLDE");
 
     private void conges() {
         String t = "conges";
@@ -582,9 +601,10 @@ public class LegacyMigrator {
         Map<String, String> typeId = new HashMap<>();
         dst.query("SELECT code, id FROM type_demande", rs -> { typeId.put(rs.getString(1), rs.getString(2)); });
         Map<String, Map<Integer, BigDecimal>> prisParAgent = new TreeMap<>();
+        Set<Long> dejaConges = dejaRepris("SELECT id_legacy FROM demande WHERE source_legacy = 'conge'");
         for (Map<String, Object> r : src.queryForList("SELECT * FROM conges ORDER BY id")) {
             inc(t, "lus"); long id = lng(r.get("id"));
-            if (dst.queryForObject("SELECT COUNT(*) FROM demande WHERE source_legacy = 'conge' AND id_legacy = ?", Integer.class, id) > 0) { inc(t, "deja_presents"); continue; }
+            if (dejaConges.contains(id)) { inc(t, "deja_presents"); continue; }
             String pers = r.get("personne_id") == null ? null : personnelDe(lng(r.get("personne_id")));
             if (pers == null) { anomalie("PERSONNE_INCONNUE", t, id, "Personne absente de la cible : congé non repris"); inc(t, "ignores"); continue; }
             String typeCode = TYPE_CONGE.get(types.get(r.get("type_id") == null ? -1L : lng(r.get("type_id"))));
@@ -683,11 +703,265 @@ public class LegacyMigrator {
         if (((Number) s.get("n")).longValue() != ((Number) d.get("n")).longValue() + (ignores == 0 ? 0 : 0)) anomalie("RECONCILIATION_NOMBRE", "deplacement_propres", "*", "Nombre de missions différent entre source et cible");
         Map<String, Long> parStatut = new TreeMap<>();
         dst.queryForList("SELECT statut, COUNT(*) AS n FROM ordre_mission WHERE source_legacy = 'propre' GROUP BY statut").forEach(m -> parStatut.put((String) m.get("statut"), ((Number) m.get("n")).longValue()));
+        if (tableSource("deplacement_programmes")) {
+            Map<String, Object> sp = src.queryForMap("SELECT COUNT(*) AS n, COALESCE(SUM(nombre_repas_taux_1 * indemnite_taux_1 + nombre_repas_taux_2 * indemnite_taux_2),0) AS repas, SUM(deleted_at IS NOT NULL) AS supprimees FROM deplacement_programmes");
+            Map<String, Object> dp = dst.queryForMap("SELECT COUNT(*) AS n, COALESCE(SUM(montant_indemnites),0) AS repas, COALESCE(SUM(supprime_le IS NOT NULL),0) AS supprimees FROM ordre_mission WHERE source_legacy = 'programme'");
+            BigDecimal a = bd(sp.get("repas")).setScale(2, java.math.RoundingMode.HALF_UP), b = bd(dp.get("repas")).setScale(2, java.math.RoundingMode.HALF_UP);
+            Map<String, Object> l = new LinkedHashMap<>(); l.put("source", a); l.put("cible", b); l.put("ecart", a.subtract(b)); rec.put("programme_somme_repas", l);
+            rec.put("programme_missions_source", ((Number) sp.get("n")).longValue()); rec.put("programme_missions_cible", ((Number) dp.get("n")).longValue());
+            rec.put("programme_supprimees_source", ((Number) sp.get("supprimees")).longValue()); rec.put("programme_supprimees_cible", ((Number) dp.get("supprimees")).longValue());
+            // la source additionne des doubles, la cible des montants arrondis ligne à ligne : un écart de quelques centimes est un écart d'arrondi
+            if (a.subtract(b).abs().compareTo(new BigDecimal("0.05")) > 0) anomalie("RECONCILIATION_ECART", "deplacement_programmes", "repas", "Écart de " + a.subtract(b) + " MAD");
+        }
+        if (tableSource("salaire_fonctionnaire")) {
+            Map<String, Object> ss = src.queryForMap("SELECT COUNT(*) AS n, COALESCE(SUM(net),0) AS net FROM salaire_fonctionnaire");
+            Map<String, Object> ds = dst.queryForMap("SELECT COUNT(*) AS n, COALESCE(SUM(salaire_net),0) AS net FROM salaire WHERE lot_id IN (SELECT id FROM import_lot WHERE numero LIKE 'REPRISE-S-%')");
+            rec.put("salaire_lignes_source", ((Number) ss.get("n")).longValue()); rec.put("salaire_lignes_cible", ((Number) ds.get("n")).longValue());
+            rec.put("salaire_net_source", bd(ss.get("net")).setScale(2, java.math.RoundingMode.HALF_UP)); rec.put("salaire_net_cible", bd(ds.get("net")).setScale(2, java.math.RoundingMode.HALF_UP));
+        }
         rec.put("missions_par_statut_cible", parStatut);
         rec.put("conges_source", src.queryForObject("SELECT COUNT(*) FROM conges", Long.class));
         rec.put("conges_cible", dst.queryForObject("SELECT COUNT(*) FROM demande WHERE source_legacy = 'conge'", Long.class));
         rec.put("personnes_source", src.queryForObject("SELECT COUNT(*) FROM personnes", Long.class));
         rec.put("personnel_cible", dst.queryForObject("SELECT COUNT(*) FROM personnel WHERE id_legacy IS NOT NULL", Long.class));
         compteurs.put("reconciliation", rec);
+    }
+
+    // ------------------------------------------------------------------ missions de programme (historique, jamais régénérées)
+
+    private boolean tableSource(String nom) {
+        Integer n = src.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?", Integer.class, nom);
+        return n != null && n > 0;
+    }
+
+    private boolean colonneSource(String table, String colonne) {
+        Integer n = src.queryForObject("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?", Integer.class, table, colonne);
+        return n != null && n > 0;
+    }
+
+    /**
+     * Les missions de programme ont été générées par Suivi RH (dates et destinations tirées au hasard). TAWASSOL ne reproduit pas cette génération :
+     * seul l'historique est repris, tel quel, avec l'origine « generation ». Rien n'est recalculé.
+     */
+    private void deplacementsProgramme() {
+        String t = "deplacement_programmes";
+        if (!tableSource(t)) return;
+        Map<Long, String> statut = new HashMap<>();
+        for (Map<String, Object> r : src.queryForList("SELECT id, code FROM deplacement_programme_statuses")) statut.put(lng(r.get("id")), (String) r.get("code"));
+        Set<String> etatEnDouble = new HashSet<>(src.queryForList("SELECT numero_etat FROM deplacement_programmes WHERE numero_etat IS NOT NULL AND numero_etat <> '' GROUP BY numero_etat HAVING COUNT(*) > 1", String.class));
+        Set<Long> deja = dejaRepris("SELECT id_legacy FROM ordre_mission WHERE source_legacy = 'programme'");
+        RepasEngine.Seuils seuils = RepasEngine.Seuils.parDefaut();
+        Map<String, String> moyen = new HashMap<>();
+        dst.query("SELECT code, id FROM moyen_transport", rs -> { moyen.put(rs.getString(1), rs.getString(2)); });
+        boolean aPhase = colonneSource(t, "phase");
+        List<Object[]> lot = new ArrayList<>(), histo = new ArrayList<>(), maps = new ArrayList<>();
+        String insert = """
+                INSERT INTO ordre_mission (id, personnel_id, programme_id, depart_delegation_id, arrival_delegation_id, moyen_transport_id, objet, date_depart, date_retour, annee, cycle, statut,
+                    numero_ordm_legacy, numero_etat_legacy, anomalie_numero, date_ordm, nombre_repas_taux_1, indemnite_taux_1, nombre_repas_taux_2, indemnite_taux_2, montant_indemnites,
+                    deplacement_remboursable, montant_total, origine, source_legacy, id_legacy, date_validation_approximative, retour_non_renseigne, ecart_moteur_historique, supprime_le, cree_le, modifie_le)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?, 1,?, 'generation','programme',?,?,?,?,?,?,?)""";
+        String insertHisto = "INSERT INTO ordre_mission_historique (id, ordre_mission_id, acteur_id, ancien_statut, nouveau_statut, commentaire, migre, cree_le) VALUES (UUID(),?,NULL,NULL,?,?,1,?)";
+        for (Map<String, Object> r : src.queryForList("SELECT * FROM deplacement_programmes ORDER BY id")) {
+            inc(t, "lus"); long id = lng(r.get("id"));
+            if (deja.contains(id)) { inc(t, "deja_presents"); continue; }
+            String pers = r.get("personne_id") == null ? null : personnelDe(lng(r.get("personne_id")));
+            if (pers == null) { anomalie("PERSONNE_INCONNUE", t, id, "Personne absente de la cible : mission non reprise"); inc(t, "ignores"); continue; }
+            if (r.get("date_depart") == null) { anomalie("DEPART_ABSENT", t, id, "Date de départ absente : mission non reprise"); inc(t, "ignores"); continue; }
+            String code = statut.get(r.get("status_id") == null ? -1L : lng(r.get("status_id")));
+            String numOrdm = r.get("numero_ordm") == null ? null : r.get("numero_ordm").toString().trim(), numEtat = r.get("numero_etat") == null ? null : r.get("numero_etat").toString().trim();
+            boolean aOrdre = numOrdm != null && !numOrdm.isEmpty();
+            String nouveau = switch (String.valueOf(code)) { case "finalized" -> "finalisee"; case "paid" -> "payee"; case "cancelled" -> "annulee"; default -> aOrdre ? "approuvee" : "soumise"; };
+            java.time.LocalDateTime d = toLdt(r.get("date_depart")), rr = r.get("date_retour") == null ? null : toLdt(r.get("date_retour"));
+            int r1 = r.get("nombre_repas_taux_1") == null ? 0 : ((Number) r.get("nombre_repas_taux_1")).intValue(), r2 = r.get("nombre_repas_taux_2") == null ? 0 : ((Number) r.get("nombre_repas_taux_2")).intValue();
+            BigDecimal t1 = bd(r.get("indemnite_taux_1")), t2 = bd(r.get("indemnite_taux_2"));
+            BigDecimal ind = t1.multiply(BigDecimal.valueOf(r1)).add(t2.multiply(BigDecimal.valueOf(r2))).setScale(2, java.math.RoundingMode.HALF_UP);
+            boolean ecart = false;
+            if (rr != null && rr.isAfter(d)) {
+                RepasEngine.Resultat c = RepasEngine.calculer(d, rr, seuils);
+                ecart = c.repasTaux1() != r1 || c.repasTaux2() != r2;
+            } else if (rr == null) anomalie("RETOUR_NON_RENSEIGNE", t, id, "Mission de programme sans retour");
+            String anomalieNumero = !aOrdre ? "numero_absent" : (numEtat != null && etatEnDouble.contains(numEtat) ? "etat_en_double" : "aucune");
+            if (!aOrdre) anomalie("NUMERO_ABSENT", t, id, "Mission de programme sans numéro d'ordre d'origine");
+            if ("etat_en_double".equals(anomalieNumero)) anomalie("ETAT_EN_DOUBLE", t, id, "Numéro d'état d'origine en double : " + numEtat);
+            String cible = newId();
+            Object cree = r.get("created_at"), maj = r.get("updated_at");
+            java.sql.Timestamp tsCree = cree == null ? java.sql.Timestamp.valueOf(d) : java.sql.Timestamp.valueOf(toLdt(cree)), tsMaj = maj == null ? null : java.sql.Timestamp.valueOf(toLdt(maj));
+            String moyenId = moyen.get(codeParLegacy("moyen_transports", "code", r.get("moyen_transport_id")));
+            lot.add(new Object[]{cible, pers, r.get("programme_id") == null ? null : programme.get(lng(r.get("programme_id"))), r.get("depart_delegation_id") == null ? null : delegation.get(lng(r.get("depart_delegation_id"))),
+                    r.get("arrival_delegation_id") == null ? null : delegation.get(lng(r.get("arrival_delegation_id"))), moyenId, r.get("objet") == null ? "" : r.get("objet"), java.sql.Timestamp.valueOf(d), rr == null ? null : java.sql.Timestamp.valueOf(rr),
+                    r.get("annee_id") == null ? d.getYear() : annee(r.get("annee_id")), r.get("cycle"), nouveau, aOrdre ? numOrdm : null, numEtat == null || numEtat.isEmpty() ? null : numEtat, anomalieNumero,
+                    r.get("date_ordm") == null ? null : sqlDate(r.get("date_ordm")), r1, t1, r2, t2, ind, ind, id, "payee".equals(nouveau) || "finalisee".equals(nouveau) || "approuvee".equals(nouveau) ? 1 : 0, rr == null ? 1 : 0, ecart ? 1 : 0,
+                    r.get("deleted_at") == null ? null : java.sql.Timestamp.valueOf(toLdt(r.get("deleted_at"))), tsCree, tsMaj});
+            histo.add(new Object[]{cible, nouveau, "Repris de Suivi RH (statut d'origine : " + code + (aPhase && r.get("phase") != null ? ", phase " + r.get("phase") : "") + ")", java.sql.Timestamp.valueOf(maj == null ? d : toLdt(maj))});
+            maps.add(new Object[]{runId, t, String.valueOf(id), "ordre_mission", cible});
+            inc(t, "crees");
+            if (lot.size() >= 500) { dst.batchUpdate(insert, lot); dst.batchUpdate(insertHisto, histo); dst.batchUpdate("INSERT INTO migration_map (run_id, table_legacy, id_legacy, table_cible, id_cible) VALUES (?,?,?,?,?)", maps); lot.clear(); histo.clear(); maps.clear(); }
+        }
+        if (!lot.isEmpty()) { dst.batchUpdate(insert, lot); dst.batchUpdate(insertHisto, histo); dst.batchUpdate("INSERT INTO migration_map (run_id, table_legacy, id_legacy, table_cible, id_cible) VALUES (?,?,?,?,?)", maps); }
+        // missions parentes : résolues après coup, la mission d'origine peut venir après
+        for (Map<String, Object> r : src.queryForList("SELECT id, parent_deplacement_id FROM deplacement_programmes WHERE parent_deplacement_id IS NOT NULL"))
+            dst.update("UPDATE ordre_mission om SET parent_ordre_id = (SELECT x.id FROM (SELECT id FROM ordre_mission WHERE source_legacy = 'programme' AND id_legacy = ?) x) WHERE om.source_legacy = 'programme' AND om.id_legacy = ?", r.get("parent_deplacement_id"), r.get("id"));
+        Integer actifs = src.queryForObject("SELECT COUNT(*) FROM programmes WHERE nombre_fois_ans > 0", Integer.class);
+        if (actifs != null && actifs > 0) anomalie("GENERATION_ALEATOIRE_UTILISEE_EN_PRODUCTION", "programmes", "*", actifs + " programmes ont un nombre de cycles annuels > 0 : la génération automatique était utilisée. Historique repris tel quel, génération non reproduite.");
+    }
+
+    // ------------------------------------------------------------------ salaires et notes
+
+    private static BigDecimal nombre(Object o) {
+        if (o == null) return BigDecimal.ZERO;
+        String s = o.toString().trim().replace(',', '.').replace(" ", "");
+        if (s.isEmpty() || s.equalsIgnoreCase("null")) return BigDecimal.ZERO;
+        try { return new BigDecimal(s); } catch (NumberFormatException e) { return null; }
+    }
+
+    private Map<String, String> personnelParMatricule() {
+        Map<String, String> m = new HashMap<>();
+        dst.query("SELECT matricule, id FROM personnel", rs -> { m.put(rs.getString(1), rs.getString(2)); });
+        return m;
+    }
+
+    /** Un lot publié par mois, comme pour un import de la RH. Le dernier échelon connu met à jour la fiche. */
+    private void salaires() {
+        String t = "salaire_fonctionnaire";
+        if (!tableSource(t)) return;
+        Map<String, String> pers = personnelParMatricule();
+        Map<String, String> gradeDe = new HashMap<>();
+        dst.query("SELECT id, grade_id FROM personnel WHERE grade_id IS NOT NULL", rs -> { gradeDe.put(rs.getString(1), rs.getString(2)); });
+        Map<String, String> lots = new HashMap<>();
+        Map<String, Integer> nbParLot = new HashMap<>();
+        Map<String, Object[]> dernierEchelon = new HashMap<>();   // personnel -> {annee*100+mois, ech, date_ech}
+        String insert = "INSERT INTO salaire (id, personnel_id, grade_id, annee, mois, echelon, salaire_net, alloc_familiale, retenue_mutuelle, rappel, lot_id, statut, publie_le) VALUES (UUID(),?,?,?,?,?,?,?,?,?,?, 'publie', NOW())";
+        List<Object[]> lot = new ArrayList<>();
+        Set<String> vus = new HashSet<>();
+        Set<String> existants = new HashSet<>(dst.queryForList("SELECT CONCAT(personnel_id, '|', annee, '|', mois) FROM salaire", String.class));
+        dst.query("SELECT numero, id FROM import_lot WHERE numero LIKE 'REPRISE-S-%'", rs -> { String n = rs.getString(1); lots.put(Integer.parseInt(n.substring(10, 14)) + "-" + Integer.parseInt(n.substring(14)), rs.getString(2)); });
+        for (Map<String, Object> r : src.queryForList("SELECT * FROM salaire_fonctionnaire ORDER BY annee, mois, matricule")) {
+            inc(t, "lus");
+            String mat = String.valueOf(r.get("matricule")).trim();
+            String pid = pers.get(mat);
+            if (pid == null) { anomalie("SALAIRE_MATRICULE_INCONNU", t, mat, "Matricule absent de la liste du personnel : ligne non reprise"); inc(t, "ignores"); continue; }
+            int annee = ((Number) r.get("annee")).intValue(), mois = ((Number) r.get("mois")).intValue();
+            if (existants.contains(pid + "|" + annee + "|" + mois)) { inc(t, "deja_presents"); continue; }
+            if (!vus.add(pid + "|" + annee + "|" + mois)) { anomalie("SALAIRE_EN_DOUBLE", t, mat, "Deux lignes pour " + annee + "/" + mois + " : la première est conservée"); inc(t, "ignores"); continue; }
+            BigDecimal net = nombre(r.get("net")), alloc = nombre(r.get("all_familiale")), mut = nombre(r.get("Retenue_Mutuelle")), rap = nombre(r.get("rappel"));
+            if (net == null || alloc == null || mut == null || rap == null) { anomalie("SALAIRE_MONTANT_ILLISIBLE", t, mat, "Montant non numérique : ligne non reprise"); inc(t, "ignores"); continue; }
+            String cleLot = annee + "-" + mois;
+            String lotId = lots.computeIfAbsent(cleLot, k -> {
+                String id = newId();
+                dst.update("INSERT INTO import_lot (id, numero, type_import, periode_annee, periode_mois, fichier_nom, fichier_sha256, statut, publie_le) VALUES (?,?,'salaire',?,?,?,?, 'publie', NOW())",
+                        id, String.format("REPRISE-S-%d%02d", annee, mois), annee, mois, "salaire_fonctionnaire.sql (reprise)", "0".repeat(64));
+                return id;
+            });
+            nbParLot.merge(lotId, 1, Integer::sum);
+            Object ech = r.get("ech");
+            lot.add(new Object[]{pid, gradeDe.get(pid), annee, mois, ech == null || ech.toString().isBlank() ? null : ech.toString().trim(), net, alloc, mut, rap, lotId});
+            Object[] prev = dernierEchelon.get(pid);
+            int periode = annee * 100 + mois;
+            if (ech != null && ech.toString().trim().matches("\\d+") && (prev == null || (int) prev[0] <= periode)) dernierEchelon.put(pid, new Object[]{periode, ech.toString().trim(), r.get("date_ech")});
+            inc(t, "crees");
+            if (lot.size() >= 1000) { dst.batchUpdate(insert, lot); lot.clear(); }
+        }
+        if (!lot.isEmpty()) dst.batchUpdate(insert, lot);
+        nbParLot.forEach((id, n) -> dst.update("UPDATE import_lot SET nb_lignes = (SELECT COUNT(*) FROM salaire WHERE lot_id = ?) WHERE id = ?", id, id));
+        // dernier échelon connu = celui du dernier bulletin (la colonne « echl » de la source n'est pas reprise : sa signification est à confirmer)
+        int maj = 0;
+        for (var e : dernierEchelon.entrySet()) {
+            Object[] v = e.getValue();
+            maj += dst.update("UPDATE personnel SET echelon = ?, date_echelon = ? WHERE id = ?", v[1], v[2] == null ? null : sqlDate(v[2]), e.getKey());
+        }
+        Map<String, Object> m = c("echelons_mis_a_jour"); m.put("crees", maj);
+        anomalie("SALAIRE_ECHL_NON_REPRIS", t, "*", "Colonnes echl et date_echl non reprises : signification à confirmer par la paie");
+    }
+
+    private static final Map<Integer, String> APPRECIATION = Map.of();
+
+    /** Notes annuelles publiées. Deux lignes de même valeur (17.5 et 17.50) ne sont qu'une ; deux valeurs différentes sont signalées et la plus récente (plus grand « Som ») est gardée. */
+    private void notes() {
+        String t = "Note_Annuelle";
+        if (!tableSource(t)) return;
+        Map<String, String> pers = personnelParMatricule();
+        Map<String, Object[]> retenu = new LinkedHashMap<>();   // matricule|annee -> {som, note}
+        for (Map<String, Object> r : src.queryForList("SELECT Som, Matricule, Annee, Note FROM Note_Annuelle ORDER BY Annee, Matricule, Som")) {
+            inc(t, "lus");
+            String mat = String.valueOf(r.get("Matricule")).trim();
+            if (!pers.containsKey(mat)) { anomalie("NOTE_MATRICULE_INCONNU", t, mat, "Matricule absent de la liste du personnel"); inc(t, "ignores"); continue; }
+            BigDecimal note = r.get("Note") == null || r.get("Note").toString().isBlank() ? null : nombre(r.get("Note"));
+            if (note == null) { anomalie("NOTE_VIDE", t, mat, "Note absente ou illisible pour " + r.get("Annee")); inc(t, "ignores"); continue; }
+            if (note.signum() < 0 || note.compareTo(BigDecimal.valueOf(20)) > 0) { anomalie("NOTE_HORS_BAREME", t, mat, "Note hors de 0 à 20 : " + note); inc(t, "ignores"); continue; }
+            String cle = mat + "|" + r.get("Annee");
+            Object[] prev = retenu.get(cle);
+            if (prev != null) {
+                if (((BigDecimal) prev[1]).compareTo(note) != 0) anomalie("NOTE_EN_CONFLIT", t, mat, "Deux valeurs pour " + r.get("Annee") + " : " + prev[1] + " et " + note + " ; la plus récente est gardée");
+                else inc(t, "ignores");
+            }
+            retenu.put(cle, new Object[]{r.get("Som"), note});
+        }
+        String insert = "INSERT INTO note_annuelle (id, personnel_id, annee, note, statut, publie_le, date_validation) VALUES (UUID(),?,?,?, 'publiee', NOW(), NOW())";
+        List<Object[]> lot = new ArrayList<>();
+        Set<String> deja = new HashSet<>(dst.queryForList("SELECT CONCAT(personnel_id, '|', annee) FROM note_annuelle", String.class));
+        for (var e : retenu.entrySet()) {
+            String[] k = e.getKey().split("\\|");
+            if (deja.contains(pers.get(k[0]) + "|" + k[1])) { inc(t, "deja_presents"); continue; }
+            lot.add(new Object[]{pers.get(k[0]), Integer.parseInt(k[1]), e.getValue()[1]});
+            inc(t, "crees");
+            if (lot.size() >= 1000) { dst.batchUpdate(insert, lot); lot.clear(); }
+        }
+        if (!lot.isEmpty()) dst.batchUpdate(insert, lot);
+    }
+
+    // ------------------------------------------------------------------ comptes de test
+
+    private java.util.function.Function<String, String> hasher;
+    private boolean comptesDeTest;
+    private final List<String[]> identifiants = new ArrayList<>();
+
+    public void activerComptesDeTest(java.util.function.Function<String, String> hasher) { this.hasher = hasher; this.comptesDeTest = true; }
+    public List<String[]> identifiants() { return identifiants; }
+
+    private String motDePasse() {
+        String alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+        java.security.SecureRandom sr = new java.security.SecureRandom();
+        StringBuilder sb = new StringBuilder("Tw-");
+        for (int i = 0; i < 14; i++) sb.append(alphabet.charAt(sr.nextInt(alphabet.length())));
+        return sb.append("!7").toString();
+    }
+
+    /**
+     * Comptes individuels de TEST rattachés à de vrais agents (login « test.* »), pour essayer le portail avec les données reprises.
+     * Suivi RH ne dit pas quelle personne exerce quelle responsabilité : ces désignations sont arbitraires, à supprimer avant la production.
+     * Les mots de passe sont aléatoires, écrits une seule fois dans un fichier local, et à changer à la première connexion.
+     */
+    private void comptesDeTest() {
+        if (!comptesDeTest) return;
+        List<Map<String, Object>> unites = dst.queryForList("""
+                SELECT s.id AS sid, s.delegation_id AS did, COUNT(*) AS n FROM personnel p JOIN structure s ON s.id = p.structure_id
+                WHERE p.est_actif = 1 AND s.a_completer = 0 AND s.type = 'unite_administrative' AND EXISTS (SELECT 1 FROM salaire x WHERE x.personnel_id = p.id AND x.statut = 'publie')
+                GROUP BY s.id, s.delegation_id ORDER BY n DESC LIMIT 1""");
+        if (unites.isEmpty()) { anomalie("COMPTES_TEST_IMPOSSIBLES", "personnel", "*", "Aucune unité avec des agents et des bulletins"); return; }
+        String unite = (String) unites.get(0).get("sid"), deleg = (String) unites.get(0).get("did");
+        List<Map<String, Object>> agents = dst.queryForList("SELECT p.id, p.matricule, p.nom_fr, p.prenom_fr FROM personnel p WHERE p.est_actif = 1 AND p.structure_id = ? AND EXISTS (SELECT 1 FROM salaire x WHERE x.personnel_id = p.id AND x.statut = 'publie') AND NOT EXISTS (SELECT 1 FROM utilisateur u WHERE u.personnel_id = p.id) ORDER BY p.matricule LIMIT 6", unite);
+        if (agents.size() < 6) { anomalie("COMPTES_TEST_IMPOSSIBLES", "personnel", "*", "Moins de six agents disponibles dans l'unité choisie"); return; }
+        String coord = dst.queryForObject("SELECT coordination_id FROM delegation_province WHERE id = ?", String.class, deleg);
+        // 0,1 : agents ; 2 : responsable de l'unité ; 3 : délégué ; 4 : coordinateur ; 5 : cellule des déplacements. La cellule de paie et la RH sont prises dans le service des ressources humaines.
+        List<Map<String, Object>> rhAgents = dst.queryForList("SELECT p.id, p.matricule, p.nom_fr, p.prenom_fr FROM personnel p JOIN structure s ON s.id = p.structure_id WHERE p.est_actif = 1 AND (s.code LIKE '%drh%' OR s.code LIKE '%grh%') AND p.id NOT IN (" + agents.stream().map(a -> "'" + a.get("id") + "'").collect(java.util.stream.Collectors.joining(",")) + ") ORDER BY p.matricule LIMIT 2");
+        if (rhAgents.size() < 2) rhAgents = dst.queryForList("SELECT p.id, p.matricule, p.nom_fr, p.prenom_fr FROM personnel p WHERE p.est_actif = 1 AND p.structure_id <> ? ORDER BY p.matricule LIMIT 2", unite);
+        record Compte(String login, Map<String, Object> agent, String role, String profil) {}
+        List<Compte> comptes = List.of(new Compte("test.agent1", agents.get(0), "agent_standard", "agent"), new Compte("test.agent2", agents.get(1), "agent_standard", "agent"),
+                new Compte("test.responsable", agents.get(2), "responsable_standard", "responsable"), new Compte("test.delegue", agents.get(3), "responsable_standard", "responsable"),
+                new Compte("test.coordinateur", agents.get(4), "responsable_standard", "responsable"), new Compte("test.deplacements", rhAgents.get(0), "cellule_deplacements", "rh"),
+                new Compte("test.paie", rhAgents.get(1), "cellule_paie", "rh"), new Compte("test.rh", agents.get(5), "rh_generaliste", "rh"));
+        for (Compte c : comptes) {
+            if (dst.queryForObject("SELECT COUNT(*) FROM utilisateur WHERE login = ?", Integer.class, c.login()) > 0) { anomalie("COMPTE_TEST_EXISTANT", "utilisateur", c.login(), "Compte déjà présent : non recréé"); continue; }
+            String mdp = motDePasse();
+            dst.update("INSERT INTO utilisateur (id, personnel_id, login, mot_de_passe, role, est_actif, doit_changer_mdp, role_id) VALUES (UUID(),?,?,?,?,1,1,(SELECT id FROM role WHERE code = ?))", c.agent().get("id"), c.login(), hasher.apply(mdp), c.profil(), c.role());
+            identifiants.add(new String[]{c.login(), mdp, String.valueOf(c.agent().get("matricule")), c.agent().get("nom_fr") + " " + c.agent().get("prenom_fr"), c.role()});
+            inc("comptes_de_test", "crees");
+        }
+        if (identifiants.isEmpty()) return;
+        java.time.LocalDate debut = java.time.LocalDate.now();
+        dst.update("INSERT INTO responsable_perimetre (personnel_id, type_perimetre, structure_id, date_debut) VALUES (?,'structure',?,?)", agents.get(2).get("id"), unite, java.sql.Date.valueOf(debut));
+        dst.update("INSERT INTO responsable_perimetre (personnel_id, type_perimetre, delegation_id, date_debut) VALUES (?,'delegation',?,?)", agents.get(3).get("id"), deleg, java.sql.Date.valueOf(debut));
+        dst.update("INSERT INTO responsable_perimetre (personnel_id, type_perimetre, coordination_id, date_debut) VALUES (?,'coordination',?,?)", agents.get(4).get("id"), coord, java.sql.Date.valueOf(debut));
+        anomalie("COMPTES_DE_TEST_CREES", "utilisateur", "*", "8 comptes test.* créés (désignations arbitraires) : à supprimer avant la production");
     }
 }

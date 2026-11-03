@@ -133,3 +133,32 @@ Résultat sur la sauvegarde du 27/06/2024 (essais sur une base cible jetable, ja
 - Les droits annuels de congé n'existent pas dans Suivi RH : aucun solde n'est inventé, la RH les saisit (anomalie `SOLDES_A_INITIALISER`).
 
 **Reste à faire avant la bascule (M5), hors de ce dépôt** : répétition complète sur une copie de la base de production avec le rapport de réconciliation signé, recette par profil, gel de la saisie, migration finale puis delta, conservation de Suivi RH en lecture seule, plan de retour arrière. **Aucune migration sur une base réelle sans validation écrite** : le mode réel refuse de démarrer sans référence de validation.
+
+## 12. Chargement des données réelles fournies (03/11/2026)
+
+Trois exports ont été fournis : la base complète de Suivi RH, `salaire_fonctionnaire` (bulletins de janvier à septembre 2026) et `Note_Annuelle` (2018 à 2025). Ils se chargent dans **un seul schéma source** (les noms de tables ne se recoupent pas), puis `tawassol-migrate` reprend tout en une passe : référentiels, personnel, comptes d'entité, missions propres et de programme, congés, messages, salaires, notes, compteurs, réconciliation, et (option `--tawassol.migrate.comptes-test=true`) comptes de test.
+
+| Donnée | Source | Reprise |
+|---|---|---|
+| Personnel | 3 023 | 3 023 (CNIE chiffrées, 2 740 actifs) |
+| Structures, délégations, coordinations, grades, programmes | 102, 83, 13, 75, 64 | tous |
+| Missions propres | 10 796 (10 683 non supprimées) | 10 796 ; repas, transport et kilométrique : écart nul |
+| Missions de programme | 16 141 (12 745 supprimées) | 16 141, origine « generation », historique tel quel |
+| Congés | 14 489 | 14 489 (dont 78 de type paternité, repris comme maternité) |
+| Salaires | 23 622 lignes, 9 lots mensuels | 23 593 ; 29 lignes de matricules inconnus ignorées ; échelon de la fiche mis à jour (2 781 agents) |
+| Notes annuelles | 21 363 | 16 820 publiées ; 4 267 de matricules inconnus (agents sortis) et 64 vides ignorées |
+
+Décisions et constats :
+- **Rattachement organisationnel** : dans Suivi RH, 2 718 agents ont la structure « AUTRE » (dont 2 391 en délégation). Ce n'est pas une unité : ces agents sont rattachés à leur délégation, et seules les unités centrales rattachent les agents affectés au siège (296 agents). Sinon la chaîne de validation passerait par le siège pour des agents de délégation.
+- **Génération automatique en production** : 60 programmes ont un nombre de cycles annuels non nul et 16 141 missions de programme existent. La génération (dates et destinations tirées au hasard) est donc réellement utilisée dans Suivi RH. TAWASSOL ne la reproduit pas ; seul l'historique est repris. Décision de la direction attendue sur la planification réelle.
+- **Salaires** : les colonnes `echl` et `date_echl` ne sont pas reprises (signification à confirmer par la paie). `ech` est reporté comme échelon et `date_ech` comme date d'échelon de la fiche.
+- **Notes** : « 17.5 » et « 17.50 » ne font qu'une ; deux valeurs différentes seraient signalées et la plus récente gardée.
+- **Missions sans numéro d'origine** : 2 378 (propres et programme) ; numéros d'état en double : 68 lignes.
+- **Comptes de test** : 8 comptes `test.*` rattachés à de vrais agents (deux agents, un responsable de structure, un délégué, un coordinateur, la cellule des déplacements, la cellule de paie, un profil RH). Suivi RH ne dit pas quelle personne exerce quelle responsabilité : ces désignations sont arbitraires et **à supprimer avant la production**. Les mots de passe sont aléatoires, écrits une seule fois dans un fichier local `IDENTIFIANTS-COMPTES-TEST-*.csv` (droits 600, jamais dans le rapport ni dans git), et doivent être changés à la première connexion.
+- **Données personnelles** : les exports, la base reprise et les identifiants ne sont jamais publiés dans le dépôt.
+
+Charger l'export de la base reprise dans un MySQL Docker :
+```bash
+gunzip -c tawassol_donnees_reelles.sql.gz | docker compose exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" tawassol'
+```
+

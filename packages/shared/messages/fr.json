@@ -159,6 +159,10 @@
     "editDraft": "Modifier",
     "warnDebt": "La capacité d'endettement n'a pas pu être évaluée (aucun bulletin publié).",
     "by": "par {name}",
+    "t_CONGE_PERMISSION_ABSENCE": "Permission d'absence",
+    "t_CONGE_MATERNITE": "Congé de maternité, paternité ou adoption",
+    "t_CONGE_SANS_SOLDE": "Congé sans solde",
+    "t_CONGE_ACCIDENT_TRAVAIL": "Congé pour accident ou maladie liés au travail",
     "attestationPdf": "Télécharger l'attestation (PDF)",
     "attestationHint": "L'attestation est numérotée et vérifiable par QR code."
   },

@@ -81,6 +81,14 @@ public class MigrateCommand implements ApplicationRunner {
             w.println("code;table;id_legacy;detail");
             for (Map<String, Object> a : r.migrator().anomalies()) w.println(a.get("code") + ";" + a.get("table") + ";" + a.get("id_legacy") + ";" + String.valueOf(a.get("detail")).replace(";", ","));
         }
+        if (!r.migrator().identifiants().isEmpty() && "reel".equals(r.rapport().get("mode"))) {
+            Path f = dir.resolve("IDENTIFIANTS-COMPTES-TEST-" + r.runId() + ".csv");
+            try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(f, StandardCharsets.UTF_8))) {
+                w.println("login;mot_de_passe_initial;matricule;agent;role");
+                for (String[] l : r.migrator().identifiants()) w.println(String.join(";", l));
+            }
+            try { Files.setPosixFilePermissions(f, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")); } catch (Exception ignore) { /* système de fichiers sans permissions POSIX */ }
+        }
         try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("comptes-perimetres-" + r.runId() + ".csv"), StandardCharsets.UTF_8))) {
             w.println("login;role_origine;role_cible;coordination_legacy;delegation_legacy;unite_legacy");
             for (Map<String, Object> p : r.migrator().comptesPerimetres()) w.println(p.get("login") + ";" + p.get("role_origine") + ";" + p.get("role_cible") + ";" + p.get("coordination") + ";" + p.get("delegation") + ";" + p.get("unite_administrative"));

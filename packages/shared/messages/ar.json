@@ -159,6 +159,10 @@
     "editDraft": "تعديل",
     "warnDebt": "تعذر تقييم القدرة على الاستدانة (لا يوجد كشف منشور).",
     "by": "من طرف {name}",
+    "t_CONGE_PERMISSION_ABSENCE": "رخصة بالتغيب",
+    "t_CONGE_MATERNITE": "رخصة الولادة أو الأبوة أو الكفالة",
+    "t_CONGE_SANS_SOLDE": "رخصة بدون أجر",
+    "t_CONGE_ACCIDENT_TRAVAIL": "رخصة بسبب حادثة أو مرض مرتبط بالعمل",
     "attestationPdf": "تحميل الشهادة (PDF)",
     "attestationHint": "الشهادة مرقمة ويمكن التحقق منها برمز QR."
   },

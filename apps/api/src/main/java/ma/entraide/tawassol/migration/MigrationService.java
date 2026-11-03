@@ -15,8 +15,10 @@ public class MigrationService {
     private final JdbcTemplate target;
     private final PlatformTransactionManager tx;
     @Value("${tawassol.migrate.cnie-key:}") String cnieKey;
+    @Value("${tawassol.migrate.comptes-test:false}") boolean comptesTest;
+    private final ma.entraide.tawassol.security.PasswordService passwords;
 
-    public MigrationService(JdbcTemplate target, PlatformTransactionManager tx) { this.target = target; this.tx = tx; }
+    public MigrationService(JdbcTemplate target, PlatformTransactionManager tx, ma.entraide.tawassol.security.PasswordService passwords) { this.target = target; this.tx = tx; this.passwords = passwords; }
 
     public record Resultat(String runId, Map<String, Object> rapport, LegacyMigrator migrator) {}
 
@@ -25,6 +27,7 @@ public class MigrationService {
         if (reel && (validationEcrite == null || validationEcrite.isBlank())) throw new IllegalStateException("Migration réelle refusée : aucune validation écrite référencée.");
         if (reel && cnieKey.isBlank()) throw new IllegalStateException("Migration réelle refusée : clé de chiffrement de la CNIE absente.");
         LegacyMigrator m = new LegacyMigrator(source, target, new CnieProtector(cnieKey));
+        if (comptesTest) m.activerComptesDeTest(passwords::hash);
         TransactionTemplate t = new TransactionTemplate(tx);
         String runId = m.runId();
         try {
@@ -34,7 +37,7 @@ public class MigrationService {
                 if (!reel) st.setRollbackOnly();
             });
         } catch (RuntimeException e) {
-            target.update("INSERT INTO migration_run (id, source, mode, statut, fin, rapport) VALUES (?,?,?, 'echouee', NOW(), ?)", runId, "suivirh", reel ? "reel" : "a_blanc", "{\"erreur\":\"" + e.getClass().getSimpleName() + "\"}");
+            target.update("INSERT INTO migration_run (id, source, mode, statut, fin, rapport) VALUES (?,?,?, 'echouee', NOW(), ?) ON DUPLICATE KEY UPDATE statut = 'echouee', fin = NOW(), rapport = VALUES(rapport)", runId, "suivirh", reel ? "reel" : "a_blanc", "{\"erreur\":\"" + e.getClass().getSimpleName() + "\"}");
             throw e;
         }
         Map<String, Object> rapport = m.rapport();
