@@ -25,7 +25,7 @@ export default function Calendrier() {
   const today = iso(now.getFullYear(), now.getMonth() + 1, now.getDate());
   const ferie = new Set(q.data?.feries.map((f) => f.date));
   return (
-    <Page title={t('rcal.title')} sub={fmtMonth(locale, ym.y, ym.m)} actions={<><button type="button" className="btn sm" onClick={() => move(-1)}>← {t('rcal.prev')}</button><button type="button" className="btn sm" onClick={() => move(1)}>{t('rcal.next')} →</button></>}>
+    <Page title={`${t('rcal.title')} · ${fmtMonth(locale, ym.y, ym.m)}`} actions={<><button type="button" className="btn sm" onClick={() => move(-1)}>← {t('rcal.prev')}</button><button type="button" className="btn sm" onClick={() => move(1)}>{t('rcal.next')} →</button></>}>
       {q.isLoading && <Loading />}
       {q.error && <ErrorBox error={q.error} onRetry={() => q.refetch()} />}
       {q.data && (q.data.membres.length === 0 ? <Card><Empty title={t('rcal.empty')} /></Card> : (

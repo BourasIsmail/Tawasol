@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtDate } from '@/lib/format';
+import { Icon } from '@/components/Icon';
 import { Card, Empty, ErrorBox, Field, Loading, Page, Row, WebOnly } from '@/components/ui';
 
 interface Camp { annee: number; dateOuverture: string; dateCloture: string; baremeMax: number }
@@ -34,7 +35,7 @@ export default function RhNotation() {
   const c = camps.data?.[0];
   return (
     <WebOnly>
-      <Page title={t('rhnota.title')} sub={c ? `${c.annee} · ${fmtDate(locale, c.dateOuverture)} → ${fmtDate(locale, c.dateCloture)} · ${t('rhnota.max')} ${c.baremeMax}` : undefined}
+      <Page title={c ? `${t('rhnota.title')} ${c.annee}` : t('rhnota.title')} sub={c ? t('rhnota.openFromTo', { from: fmtDate(locale, c.dateOuverture), to: fmtDate(locale, c.dateCloture) }) : undefined}
         actions={c ? <button type="button" className="btn pri" disabled={publish.isPending} onClick={() => publish.mutate()}>{t('rhnota.publish')}</button> : undefined}>
         {published != null && <div className="ban ok" role="status"><div><b>{t('rhnota.published', { n: published })}</b></div></div>}
         {!c && <Card title={t('rhnota.open')}>
@@ -47,17 +48,17 @@ export default function RhNotation() {
         </Card>}
         {c && <>
           {(validate.error || back.error || publish.error) && <ErrorBox error={validate.error ?? back.error ?? publish.error} />}
+          <Card title={t('rhnota.rate')}>
+            <div className="bars">{taux.data?.map((x) => { const p = x.agents ? Math.round((100 * Number(x.notes)) / x.agents) : 0; return <div key={x.structureId}><span>{locale === 'ar' ? x.nomAr : x.nomFr}</span><div className="meter"><i style={{ width: `${p}%` }} /></div><b>{p}%</b></div>; })}</div>
+          </Card>
           <Card title={t('rhnota.toCheck')} flush>
             {notes.data?.length ? notes.data.map((n) => (
               <div key={n.personnelId}>
                 <Row main={`${nm(n)} · ${n.note} / ${c.baremeMax}`} sub={`${n.structureFr}${n.saisiePar ? ` · ${t('rhnota.by', { name: n.saisiePar })}` : ''}${n.appreciation ? ` · ${n.appreciation}` : ''}`}
-                  right={<><button type="button" className="btn sm" onClick={() => setSending(n.personnelId)}>{t('rhnota.send')}</button><button type="button" className="btn sm pri" disabled={validate.isPending} onClick={() => validate.mutate(n.personnelId)}>✓ {t('rhnota.validate')}</button></>} />
+                  right={<><button type="button" className="btn sm" onClick={() => setSending(n.personnelId)}>{t('rhnota.send')}</button><button type="button" className="btn sm ok" disabled={validate.isPending} onClick={() => validate.mutate(n.personnelId)}><Icon name="check" />{t('rhnota.validate')}</button></>} />
                 {sending === n.personnelId && <div className="cb"><Field label={t('rhnota.sendReason')}><textarea value={reason} onChange={(e) => setReason(e.target.value)} /></Field><div className="acts"><button type="button" className="btn bad" disabled={!reason.trim() || back.isPending} onClick={() => back.mutate(n.personnelId)}>{t('rhnota.send')}</button><button type="button" className="btn" onClick={() => setSending(null)}>{t('common.cancel')}</button></div></div>}
               </div>
             )) : <Empty title={t('rhnota.none')} />}
-          </Card>
-          <Card title={t('rhnota.rate')}>
-            <div className="bars">{taux.data?.map((x) => { const p = x.agents ? Math.round((100 * Number(x.notes)) / x.agents) : 0; return <div key={x.structureId}><span>{locale === 'ar' ? x.nomAr : x.nomFr}</span><div className="meter"><i style={{ width: `${p}%` }} /></div><b>{p}%</b></div>; })}</div>
           </Card>
         </>}
       </Page>

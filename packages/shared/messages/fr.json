@@ -253,7 +253,8 @@
   "notif": {
     "title": "Notifications",
     "markAll": "Tout marquer comme lu",
-    "empty": "Aucune notification."
+    "empty": "Aucune notification.",
+    "new": "Nouveau"
   },
   "errors": {
     "generic": "Une erreur est survenue. Réessayez.",
@@ -406,7 +407,8 @@
     "fiche": "Fiche synthétique",
     "hiddenFin": "Salaire, primes et crédits : masqués",
     "pick": "Choisissez une structure.",
-    "none": "Aucun agent dans cette structure."
+    "none": "Aucun agent dans cette structure.",
+    "sub": "Votre périmètre inclut les sous-structures"
   },
   "rnota": {
     "title": "Notation annuelle",
@@ -430,7 +432,9 @@
     "submittedMsg": "Note soumise à la RH.",
     "locked": "Cette note est soumise : vous ne pouvez plus la modifier.",
     "rule": "Après validation par la RH, la note est verrouillée puis publiée à l'agent. Votre propre note est saisie par votre supérieur ou la RH.",
-    "empty": "Aucun agent à noter."
+    "empty": "Aucun agent à noter.",
+    "avancement": "Avancement",
+    "continue": "Continuer"
   },
   "rcal": {
     "title": "Calendrier d'équipe",
@@ -455,7 +459,8 @@
     "asSub": "Je supplée",
     "end": "Mettre fin",
     "none": "Aucune suppléance.",
-    "onlyResp": "La désignation d'un suppléant est réservée aux responsables."
+    "onlyResp": "La désignation d'un suppléant est réservée aux responsables.",
+    "rulesTitle": "Règles"
   },
   "auth": {
     "forgotTitle": "Mot de passe oublié",
@@ -502,7 +507,7 @@
     "draftLots": "Lots en brouillon",
     "notesToCheck": "Notes à contrôler",
     "byStatus": "Demandes par statut",
-    "alerts": "À faire",
+    "alerts": "Alertes",
     "title": "Tableau de bord RH",
     "toPromote": "Échelons à promouvoir",
     "lateCount": "{n} hors délai",
@@ -569,7 +574,10 @@
     "decision": "Référence de la décision",
     "effect": "Date d'effet",
     "sensitiveNote": "Chaque consultation et chaque modification est journalisée. Les données sensibles ne sont pas copiées dans le journal.",
-    "noHistory": "Aucun événement de carrière."
+    "noHistory": "Aucun événement de carrière.",
+    "activeCount": "{n} agents actifs",
+    "sheet": "Fiche",
+    "name": "Nom"
   },
   "rhimp": {
     "title": "Import Excel",
@@ -648,7 +656,8 @@
     "rate": "Taux de notation par structure",
     "by": "Saisie par {name}",
     "none": "Aucune note à contrôler.",
-    "noCampaign": "Aucune campagne : ouvrez-en une."
+    "noCampaign": "Aucune campagne : ouvrez-en une.",
+    "openFromTo": "Ouverte du {from} au {to}"
   },
   "rhpub": {
     "title": "Réclamations et publications",
@@ -793,7 +802,8 @@
     "final": "Résultats définitifs",
     "place": "Lieu",
     "examDate": "Date de l'examen",
-    "depositDate": "Date limite de dépôt"
+    "depositDate": "Date limite de dépôt",
+    "tabSteps": "Échelons éligibles"
   },
   "adv": {
     "title": "Propositions d'avancement d'échelon",

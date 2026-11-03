@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client';
+import { Icon } from '@/components/Icon';
 import { Card, ErrorBox, errorMessage, Field, Page, WebOnly } from '@/components/ui';
 
 interface Champ { key: string; label: string; obligatoire: boolean }
@@ -54,7 +55,7 @@ export default function Imports() {
   return (
     <WebOnly>
       <Page title={t('rhimp.title')}>
-        <ol className="steps">{steps.map((s, i) => <li key={s} className={i + 1 === step ? 'on' : i + 1 < step ? 'done' : ''}>{i + 1 < step ? '✓ ' : ''}{t(`rhimp.${s}`)}</li>)}</ol>
+        <ol className="steps">{steps.map((s, i) => <li key={s} className={i + 1 === step ? 'on' : i + 1 < step ? 'done' : ''}><Icon name={i + 1 < step ? 'check' : 'clock'} />{t(`rhimp.${s}`)}</li>)}</ol>
         {step === 1 && (
           <Card>
             <div className="ff c2">
@@ -70,7 +71,7 @@ export default function Imports() {
                 <Field label={t('rhimp.dateFormat')}><input value={fmt.formatDate} onChange={(e) => setFmt({ ...fmt, formatDate: e.target.value })} /></Field>
               </div>
             </details>
-            <div className="drop"><Field label={t('rhimp.file')}><input type="file" accept=".xlsx,.csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></Field></div>
+            <div className="drop"><Icon name="up" /><Field label={t('rhimp.file')}><input type="file" accept=".xlsx,.csv" onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></Field></div>
             {err != null && <ErrorBox error={err} />}
             <button type="button" className="btn pri" disabled={!file || analyse.isPending} onClick={() => analyse.mutate()}>{t('rhimp.analyse')}</button>
           </Card>

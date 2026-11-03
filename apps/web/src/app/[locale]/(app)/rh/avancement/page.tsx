@@ -1,5 +1,6 @@
 'use client';
 
+import { CareerTabs } from '@/components/CareerTabs';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,7 +23,8 @@ export default function Avancement() {
     onSuccess: () => { setSel(null); setRef(''); qc.invalidateQueries({ queryKey: ['avancement'] }); },
   });
   return (
-    <Page title={t('adv.title')} sub={t('adv.intro')}>
+    <Page title={t('nv.career')} sub={t('adv.intro')}>
+      <CareerTabs />
       {q.isLoading && <Loading />}
       {q.error && <ErrorBox error={q.error} onRetry={() => q.refetch()} />}
       {q.data && !q.data.parametreValide && <div className="ban warn"><div><small>{t('adv.unvalidated', { n: q.data.dureeMois })}</small></div></div>}

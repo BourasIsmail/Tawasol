@@ -1,5 +1,6 @@
 'use client';
 
+import { CareerTabs } from '@/components/CareerTabs';
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -20,7 +21,8 @@ export default function ExamensRh() {
     onSuccess: () => { setV({}); qc.invalidateQueries({ queryKey: ['examens'] }); },
   });
   return (
-    <Page title={t('exm.title')}>
+    <Page title={t('nv.career')}>
+      <CareerTabs />
       <div className="g2">
         <Card title={t('exm.new')}>
           <div className="ff c2">

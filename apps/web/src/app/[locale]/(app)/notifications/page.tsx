@@ -22,7 +22,7 @@ export default function Notifications() {
       {q.error && <ErrorBox error={q.error} onRetry={() => q.refetch()} />}
       {q.data && (q.data.items.length === 0 ? <Card><Empty title={t('notif.empty')} /></Card> : (
         <Card flush>{q.data.items.map((n) => (
-          <Row key={n.id} onClick={() => !n.lu && mark.mutate(n.id)} main={<>{!n.lu && <span className="dot" aria-hidden="true" />}{n.titre}</>} sub={`${n.message ?? ''} · ${fmtDateTime(locale, n.creeLe)}`} />
+          <Row key={n.id} onClick={() => !n.lu && mark.mutate(n.id)} main={n.titre} right={!n.lu ? <span className="pill info">{t('notif.new')}</span> : undefined} sub={`${n.message ?? ''} · ${fmtDateTime(locale, n.creeLe)}`} />
         ))}</Card>
       ))}
     </Page>

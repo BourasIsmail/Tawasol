@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtDate } from '@/lib/format';
+import { Icon } from '@/components/Icon';
 import { Card, Empty, ErrorBox, Loading, Page, Pill, Row } from '@/components/ui';
 
 interface Camp { annee: number; dateOuverture: string; dateCloture: string; baremeMax: number }
@@ -23,16 +24,16 @@ export default function Notation() {
   const l = list.data;
   return (
     <Page title={`${t('rnota.title')} ${c.annee}`} sub={t('rnota.campaign', { year: c.annee, from: fmtDate(locale, c.dateOuverture), to: fmtDate(locale, c.dateCloture) })}>
-      {l && <div className="panel"><div className="cb"><b>{t('rnota.progress', { done: l.soumises, total: l.total })}</b><div className="meter" style={{ height: 8, borderRadius: 99, background: 'var(--neu-soft)', overflow: 'hidden' }}><div style={{ width: `${l.total ? (100 * l.soumises) / l.total : 0}%`, height: '100%', background: 'var(--brand)' }} /></div></div></div>}
+      {l && <div className="panel"><div className="cb"><div className="rw" style={{ padding: 0, border: 0 }}><div className="rm"><b>{t('rnota.avancement')}</b></div><div className="rr mono">{l.soumises} / {l.total}</div></div><div className="meter" style={{ height: 8, borderRadius: 99, background: 'var(--neu-soft)', overflow: 'hidden' }}><div style={{ width: `${l.total ? (100 * l.soumises) / l.total : 0}%`, height: '100%', background: 'var(--brand)' }} /></div></div></div>}
       {list.isLoading && <Loading />}
       {list.error && <ErrorBox error={list.error} onRetry={() => list.refetch()} />}
       {l && (l.agents.length === 0 ? <Card><Empty title={t('rnota.empty')} /></Card> : (
         <Card flush>{l.agents.map((a) => (
-          <Row key={a.id} href={`/${locale}/responsable/notation/${a.id}`} main={nm(a)} sub={a.note != null ? `${a.note} / ${c.baremeMax}` : undefined}
-            right={a.statut === 'a_saisir' ? <span className="btn sm pri">{t('rnota.enter')}</span> : <Pill status={a.statut === 'soumise' ? 'soumise' : a.statut === 'brouillon' ? 'brouillon' : 'approuvee'} label={t(`rnota.${a.statut}`)} />} />
+          <Row key={a.id} href={`/${locale}/responsable/notation/${a.id}`} main={nm(a)} sub={a.note != null ? `${a.note} / ${c.baremeMax} · ${t(`rnota.${a.statut}`)}` : t(`rnota.${a.statut}`)}
+            right={a.statut === 'a_saisir' ? <span className="btn sm pri">{t('rnota.enter')}</span> : a.statut === 'brouillon' ? <span className="btn sm">{t('rnota.continue')}</span> : <Pill status={a.statut === 'soumise' ? 'soumise' : a.statut === 'brouillon' ? 'brouillon' : 'approuvee'} label={t(`rnota.${a.statut}`)} />} />
         ))}</Card>
       ))}
-      <p className="rib">🔒 {t('rnota.rule')}</p>
+      <p className="rib"><Icon name="lock" />{t('rnota.rule')}</p>
     </Page>
   );
 }

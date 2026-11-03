@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtDate } from '@/lib/format';
+import { Icon } from '@/components/Icon';
 import { Card, ErrorBox, Field, Loading, Page } from '@/components/ui';
 import { useMe } from '@/components/AppShell';
 
@@ -30,12 +31,16 @@ export default function FichePage() {
   return (
     <Page title={t('fiche.title')} sub={t('fiche.intro')}>
       <Card>
-        <dl className="kv">{rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+          <div className="av" style={{ width: 56, height: 56, fontSize: 18 }} aria-hidden="true">{`${f.prenomFr[0] ?? ''}${f.nomFr[0] ?? ''}`}</div>
+          <div><b style={{ fontSize: 17 }}>{ar ? `${f.prenomAr} ${f.nomAr}` : `${f.prenomFr} ${f.nomFr}`}</b><div className="muted mono" style={{ fontSize: 12 }}>{t('fiche.matricule')} {f.matricule}</div></div>
+        </div>
+        <dl className="kv">{rows.filter(([k]) => k !== t('fiche.matricule')).map(([k, v]) => <div key={k}><dt>{k}</dt><dd className={k === t('fiche.stepDate') || k === t('fiche.hired') || k === t('fiche.email') ? 'mono' : undefined}>{v}</dd></div>)}</dl>
       </Card>
       {mode === 'idle' && (
         <div className="acts">
-          <button type="button" className="btn pri" disabled={confirm.isPending} onClick={() => confirm.mutate()}>{t('fiche.allCorrect')}</button>
-          <button type="button" className="btn" onClick={() => setMode('err')}>{t('fiche.reportError')}</button>
+          <button type="button" className="btn pri" disabled={confirm.isPending} onClick={() => confirm.mutate()}><Icon name="check" />{t('fiche.allCorrect')}</button>
+          <button type="button" className="btn" onClick={() => setMode('err')}><Icon name="alert" />{t('fiche.reportError')}</button>
         </div>
       )}
       {confirm.error && <ErrorBox error={confirm.error} />}

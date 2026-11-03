@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtDate } from '@/lib/format';
+import { Icon } from '@/components/Icon';
 import { Card, Empty, ErrorBox, Field, Loading, Page, Row } from '@/components/ui';
 
 interface Person { id: string; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string }
@@ -33,9 +34,9 @@ export default function Suppleance() {
           <Field label={t('rsub.to')}><input type="date" value={f.dateFin} onChange={(e) => setF({ ...f, dateFin: e.target.value })} /></Field>
         </div>
         {create.error && <ErrorBox error={create.error} />}
-        <button type="button" className="btn pri" disabled={!f.suppleantId || !f.dateDebut || !f.dateFin || create.isPending} onClick={() => create.mutate()}>{t('rsub.save')}</button>
-        <p className="muted" style={{ margin: 0 }}>{t('rsub.rules')}</p>
+        <button type="button" className="btn pri" disabled={!f.suppleantId || !f.dateDebut || !f.dateFin || create.isPending} onClick={() => create.mutate()}><Icon name="check" />{t('rsub.save')}</button>
       </Card>
+      <div className="ban"><Icon name="shield" /><div><b>{t('rsub.rulesTitle')}</b><small>{t('rsub.rules')}</small></div></div>
       <Card title={t('rsub.mine')} flush>
         {list.data!.designes.length ? list.data!.designes.map((s) => <Row key={s.id} main={nm(s)} sub={`${fmtDate(locale, s.dateDebut)} → ${fmtDate(locale, s.dateFin)}`} right={s.actif !== false ? <button type="button" className="btn sm" onClick={() => end.mutate(s.id)}>{t('rsub.end')}</button> : undefined} />) : <Empty title={t('rsub.none')} />}
       </Card>

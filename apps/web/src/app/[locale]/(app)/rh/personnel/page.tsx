@@ -5,9 +5,10 @@ import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client';
+import { Icon } from '@/components/Icon';
 import { Card, Empty, ErrorBox, Loading, Page, WebOnly } from '@/components/ui';
 
-interface P { id: string; matricule: string; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string; gradeFr?: string; gradeAr?: string; structureFr: string; structureAr: string }
+interface P { id: string; matricule: string; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string; echelon?: string; gradeFr?: string; gradeAr?: string; structureFr: string; structureAr: string }
 
 export default function RhPersonnel() {
   const t = useTranslations();
@@ -18,15 +19,19 @@ export default function RhPersonnel() {
   const ar = locale === 'ar';
   return (
     <WebOnly>
-      <Page title={t('rhstaff.title')} sub={list.data ? `${list.data.total}` : undefined} actions={<><Link className="btn" href={`/${locale}/rh/imports`}>{t('rhstaff.importExcel')}</Link><Link className="btn pri" href={`/${locale}/rh/personnel/nouveau`}>{t('rhstaff.newAgent')}</Link></>}>
-        <input className="in" style={{ maxWidth: 320, border: '1px solid var(--line)', borderRadius: 8, padding: '9px 11px', background: 'var(--surface)', color: 'inherit' }} placeholder={t('rhstaff.search')} aria-label={t('rhstaff.search')} value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} />
+      <Page title={t('rhstaff.title')} sub={list.data ? t('rhstaff.activeCount', { n: list.data.total }) : undefined}>
+        <div className="acts" style={{ alignItems: 'center' }}>
+        <input className="in" style={{ flex: '1 1 220px', maxWidth: 260, border: '1px solid var(--line)', borderRadius: 8, padding: '9px 11px', background: 'var(--surface)', color: 'inherit' }} placeholder={t('rhstaff.search')} aria-label={t('rhstaff.search')} value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} />
+        <Link className="btn" href={`/${locale}/rh/imports`}><Icon name="up" />{t('rhstaff.importExcel')}</Link>
+        <Link className="btn pri" href={`/${locale}/rh/personnel/nouveau`}><Icon name="plus" />{t('rhstaff.newAgent')}</Link>
+        </div>
         {list.isLoading && <Loading />}
         {list.error && <ErrorBox error={list.error} onRetry={() => list.refetch()} />}
         {list.data && (list.data.content.length === 0 ? <Card><Empty title={t('rhimp.noRows')} /></Card> : (
           <Card flush>
-            <div className="scrollx"><table className="tbl"><thead><tr><th>{t('rhstaff.matricule')}</th><th>{t('rhstaff.nameFr')}</th><th>{t('rhstaff.grade')}</th><th>{t('rhstaff.structure')}</th><th /></tr></thead>
+            <div className="scrollx"><table className="tbl"><thead><tr><th>{t('rhstaff.matricule')}</th><th>{t('rhstaff.name')}</th><th>{t('rhstaff.grade')}</th><th>{t('rhstaff.structure')}</th><th>{t('rhstaff.step')}</th><th /></tr></thead>
               <tbody>{list.data.content.map((p) => (
-                <tr key={p.id}><td className="mono">{p.matricule}</td><td>{ar ? `${p.prenomAr} ${p.nomAr}` : `${p.prenomFr} ${p.nomFr}`}</td><td>{(ar ? p.gradeAr : p.gradeFr) ?? '—'}</td><td>{ar ? p.structureAr : p.structureFr}</td><td><Link className="btn sm" href={`/${locale}/rh/personnel/${p.id}`}>{t('rhstaff.edit')}</Link></td></tr>
+                <tr key={p.id}><td className="mono">{p.matricule}</td><td>{ar ? `${p.prenomAr} ${p.nomAr}` : `${p.prenomFr} ${p.nomFr}`}</td><td>{(ar ? p.gradeAr : p.gradeFr) ?? '—'}</td><td>{ar ? p.structureAr : p.structureFr}</td><td>{p.echelon ?? '—'}</td><td><Link className="btn sm" href={`/${locale}/rh/personnel/${p.id}`}>{t('rhstaff.sheet')}</Link></td></tr>
               ))}</tbody></table></div>
           </Card>
         ))}

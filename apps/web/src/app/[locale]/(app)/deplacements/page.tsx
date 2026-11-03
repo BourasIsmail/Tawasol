@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtDate, fmtMoney } from '@/lib/format';
+import { Icon } from '@/components/Icon';
 import { Card, Empty, ErrorBox, Loading, Page, Pill, Row } from '@/components/ui';
 import { MISSION_STATUTS, useDroits, type Mission } from '@/lib/missions';
 
@@ -21,7 +22,7 @@ export default function Deplacements() {
   return (
     <Page title={t('mis.title')} sub={t('mis.sub')} actions={<>
       {droits.data?.analytics && <Link className="btn" href={`/${locale}/deplacements/analytique`}>{t('mis.analytics')}</Link>}
-      {(droits.data?.demander || droits.data?.saisirPerimetre) && <Link className="btn pri" href={`/${locale}/deplacements/nouvelle`}>{t('mis.new')}</Link>}
+      {(droits.data?.demander || droits.data?.saisirPerimetre) && <Link className="btn pri" href={`/${locale}/deplacements/nouvelle`}><Icon name="plus" />{t('mis.new')}</Link>}
     </>}>
       <div className="chips" role="group">
         <button type="button" className="chip" aria-pressed={statut === ''} onClick={() => setStatut('')}>{t('mis.all')}</button>
