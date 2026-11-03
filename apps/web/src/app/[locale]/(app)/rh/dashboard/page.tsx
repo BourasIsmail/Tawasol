@@ -14,6 +14,9 @@ export default function RhDashboard() {
   const locale = useLocale();
   const q = useQuery({ queryKey: ['rhdash'], queryFn: () => api<D>('rh/tableau-de-bord') });
   const adv = useQuery({ queryKey: ['rh-adv-count'], queryFn: () => api<{ propositions: unknown[] }>('rh/avancement/propositions') });
+  const camps = useQuery({ queryKey: ['rhcamps'], queryFn: () => api<{ annee: number }[]>('rh/notation/campagnes') });
+  const annee = camps.data?.[0]?.annee;
+  const taux = useQuery({ queryKey: ['rhtaux', annee], queryFn: () => api<{ structureId: string; nomFr: string; nomAr: string; agents: number; notes: number }[]>(`rh/notation/${annee}/taux`), enabled: !!annee });
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorBox error={q.error} onRetry={() => q.refetch()} />;
   const d = q.data!;
@@ -30,6 +33,10 @@ export default function RhDashboard() {
         <Card title={t('rhdash.byStatus')}>
           <div className="bars">{d.demandesParStatut.map((x) => <div key={x.statut}><span>{t(`status.${x.statut}`)}</span><div className="meter"><i style={{ width: `${(100 * Number(x.n)) / max}%` }} /></div><b>{x.n}</b></div>)}</div>
         </Card>
+        <Card title={t('rhdash.rate')}>
+          {taux.data && taux.data.length > 0 ? <div className="bars">{[...taux.data].sort((x, y) => y.agents - x.agents).slice(0, 6).map((x) => { const p = x.agents ? Math.round((100 * Number(x.notes)) / x.agents) : 0; return <div key={x.structureId}><span>{locale === 'ar' ? x.nomAr : x.nomFr}</span><div className="meter"><i style={{ width: `${p}%` }} /></div><b>{p}%</b></div>; })}</div> : <p className="muted" style={{ margin: 0 }}>{t('rhdash.noCampaign')}</p>}
+        </Card>
+      </div>
         <Card title={t('rhdash.alerts')} flush>
           {adv.data && adv.data.propositions.length > 0 && <div className="rw"><div className="rm"><b>{t('rhdash.eligible', { n: adv.data.propositions.length })}</b><small>{t('rhdash.eligibleHint')}</small></div><div className="rr"><a className="btn sm" href={`/${locale}/rh/avancement`}>{t('rq.see')}</a></div></div>}
           <div className="rw"><div className="rm"><b>{t('rhdash.incompleteCount', { n: d.dossiersIncomplets })}</b></div><div className="rr"><a className="btn sm" href={`/${locale}/rh/personnel`}>{t('rq.see')}</a></div></div>
@@ -38,7 +45,6 @@ export default function RhDashboard() {
           <a className="rw link" href={`/${locale}/rh/notation`}><div className="rm"><b>{t('rhdash.notesToCheck')}</b></div><div className="rr"><b>{d.notesASoumettre}</b></div></a>
           <a className="rw link" href={`/${locale}/rh/publications`}><div className="rm"><b>{t('rhdash.claims')}</b></div><div className="rr"><b>{d.reclamationsOuvertes}</b></div></a>
         </Card>
-      </div>
     </Page>
   );
 }

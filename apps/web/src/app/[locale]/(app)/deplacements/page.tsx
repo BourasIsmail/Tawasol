@@ -20,9 +20,11 @@ export default function Deplacements() {
   const droits = useDroits();
   const q = useQuery({ queryKey: ['missions', statut], queryFn: () => api<{ content: Mission[] }>(`missions?size=50${statut ? `&statut=${statut}` : ''}`) });
   const d = droits.data;
+  const cell = !!d?.valider && statut === 'validee_responsable';
+  const an = useQuery({ queryKey: ['mission-analytique-cell'], queryFn: () => api<{ parStatut: { statut: string; nombre: number }[]; anomalies: Record<string, number | null> }>(`missions/analytique?annee=${new Date().getFullYear()}`), enabled: !!d?.analytics });
   const pure = !!d && !d.analytics && !d.valider && !d.validerNiveau1 && !d.validerPaiement && !d.saisirPerimetre && !d.etats;
   return (
-    <Page title={pure ? t('mis.mine') : t('mis.title')} sub={pure ? undefined : t('mis.sub')} actions={<>
+    <Page title={pure ? t('mis.mine') : cell ? t('mis.toCheck') : t('mis.title')} sub={pure ? undefined : t('mis.sub')} actions={<>
       {droits.data?.analytics && <Link className="btn" href={`/${locale}/deplacements/analytique`}>{t('mis.analytics')}</Link>}
       {(droits.data?.demander || droits.data?.saisirPerimetre) && <Link className="btn pri" href={`/${locale}/deplacements/nouvelle`}><Icon name="plus" />{t('mis.new')}</Link>}
     </>}>
@@ -30,6 +32,14 @@ export default function Deplacements() {
         <button type="button" className="chip" aria-pressed={statut === ''} onClick={() => setStatut('')}>{t('mis.all')}</button>
         {MISSION_STATUTS.map((s) => <button type="button" key={s} className="chip" aria-pressed={statut === s} onClick={() => setStatut(s)}>{t(`status.${s}`)}</button>)}
       </div>}
+      {cell && an.data && (
+        <div className="g4">
+          <div className="stat"><span>{t('mis.cToValidate')}</span><b>{an.data.parStatut.filter((l) => l.statut === 'validee_responsable').reduce((a, l) => a + Number(l.nombre), 0)}</b></div>
+          <div className="stat"><span>{t('mis.w_RETOUR_NON_RENSEIGNE')}</span><b style={{ color: 'var(--warn)' }}>{an.data.anomalies.retourNonRenseigne ?? 0}</b></div>
+          <div className="stat"><span>{t('mis.w_DEPART_EGAL_ARRIVEE')}</span><b style={{ color: 'var(--warn)' }}>{an.data.anomalies.departEgalArrivee ?? 0}</b></div>
+          <div className="stat"><span>{t('mis.historicAmount')}</span><b>{an.data.anomalies.montantHistoriqueNonReproductible ?? 0}</b></div>
+        </div>
+      )}
       {q.isLoading && <Loading />}
       {q.error && <ErrorBox error={q.error} onRetry={() => q.refetch()} />}
       {q.data && (q.data.content.length === 0

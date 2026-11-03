@@ -129,6 +129,9 @@ for k,fr,ar in [("formTitle","Demande d'ordre de mission","طلب أمر بمه�
 for k,fr,ar in [("statCount","Missions","المهمات"),("statValidated","Montant validé","المبلغ المصادق عليه"),("statPending","En attente","في الانتظار")]: T("mis."+k,fr,ar)
 T("mis.mine","Mes missions","مهماتي")
 T("rval.request","Demande","الطلب")
+for k,fr,ar in [("tabGrades","Grades","الدرجات"),("noGrades","Aucun grade.","لا توجد درجات."),("gradeSub","Échelle {scale} · {n} échelons","السلم {scale} · {n} رتب"),("code","code","الرمز")]: T("car."+k,fr,ar)
+for k,fr,ar in [("toCheck","Missions à contrôler","المهمات للمراجعة"),("cToValidate","À valider","للمصادقة")]: T("mis."+k,fr,ar)
+for k,fr,ar in [("rate","Taux de notation par structure","نسبة التنقيط حسب البنية"),("noCampaign","Aucune campagne de notation ouverte.","لا توجد حملة تنقيط مفتوحة.")]: T("rhdash."+k,fr,ar)
 for lang,idx in (("fr",1),("ar",2)):
     out = {}
     for r in R:

@@ -514,7 +514,9 @@
     "lateCount": "{n} hors délai",
     "eligible": "{n} agents éligibles à l'avancement d'échelon",
     "eligibleHint": "Durée par grade : paramètre à valider",
-    "incompleteCount": "{n} dossiers sans e-mail ni photo"
+    "incompleteCount": "{n} dossiers sans e-mail ni photo",
+    "rate": "Taux de notation par structure",
+    "noCampaign": "Aucune campagne de notation ouverte."
   },
   "rhreq": {
     "title": "Traitement des demandes",
@@ -792,7 +794,9 @@
     "statCount": "Missions",
     "statValidated": "Montant validé",
     "statPending": "En attente",
-    "mine": "Mes missions"
+    "mine": "Mes missions",
+    "toCheck": "Missions à contrôler",
+    "cToValidate": "À valider"
   },
   "car": {
     "title": "Ma carrière",
@@ -814,7 +818,11 @@
     "place": "Lieu",
     "examDate": "Date de l'examen",
     "depositDate": "Date limite de dépôt",
-    "tabSteps": "Échelons éligibles"
+    "tabSteps": "Échelons éligibles",
+    "tabGrades": "Grades",
+    "noGrades": "Aucun grade.",
+    "gradeSub": "Échelle {scale} · {n} échelons",
+    "code": "code"
   },
   "adv": {
     "title": "Propositions d'avancement d'échelon",

@@ -112,6 +112,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   /** Actif : même chemin ; pour les entrées qui partagent un chemin (filtres de statut), le paramètre statut départage. */
   const isOn = (it: Item): boolean => {
+    if (it.id === 'career') return ['/rh/avancement', '/rh/grades', '/rh/examens'].some((x) => path === x || path.startsWith(`${x}/`));
     const [hrefPath, query] = it.href.split('?');
     if (path !== hrefPath && !path.startsWith(`${hrefPath}/`)) return false;
     const wanted = query ? new URLSearchParams(query).get('statut') : null;
