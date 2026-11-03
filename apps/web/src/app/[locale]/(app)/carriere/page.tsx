@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtDate } from '@/lib/format';
 import { Card, Empty, ErrorBox, Loading, Page } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 
 interface Evenement { id: string; type: string; ancienneValeur?: string; nouvelleValeur: string; dateEffet: string; decisionRef?: string }
 export interface Examen { id: string; gradeFr?: string; gradeAr?: string; dateExamen: string; dateDepot?: string; nbPostes: number; lieu?: string; resultatsEcrit?: string; resultatsFinal?: string }
@@ -22,7 +23,7 @@ export default function Carriere() {
           {h.error && <ErrorBox error={h.error} onRetry={() => h.refetch()} />}
           {h.data && (h.data.length === 0 ? <Empty title={t('car.empty')} /> : (
             <ol className="tl">{h.data.map((x) => (
-              <li key={x.id}><span className="d" aria-hidden="true">✓</span>
+              <li key={x.id}><span className="d" aria-hidden="true"><Icon name="check" /></span>
                 <div><b>{t(`car.e_${x.type}`)}</b><small>{x.ancienneValeur ? `${x.ancienneValeur} → ` : ''}{x.nouvelleValeur} · {fmtDate(locale, x.dateEffet)}</small>{x.decisionRef && <q>{x.decisionRef}</q>}</div></li>
             ))}</ol>
           ))}

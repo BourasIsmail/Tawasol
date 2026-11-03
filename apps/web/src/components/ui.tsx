@@ -70,7 +70,7 @@ export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => v
 }
 
 export function Empty({ title, hint, action }: { title: string; hint?: string; action?: ReactNode }) {
-  return <div className="empty"><b>{title}</b>{hint && <span>{hint}</span>}{action}</div>;
+  return <div className="empty"><Icon name="inbox" /><b>{title}</b>{hint && <span>{hint}</span>}{action}</div>;
 }
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {

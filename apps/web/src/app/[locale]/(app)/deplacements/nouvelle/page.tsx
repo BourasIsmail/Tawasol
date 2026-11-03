@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtMoney } from '@/lib/format';
+import { Icon } from '@/components/Icon';
 import { Card, ErrorBox, Field, Loading, Page } from '@/components/ui';
 
 interface Ref { id: string; code?: string; nomFr?: string; nomAr?: string; libelleFr?: string; libelleAr?: string; tauxKm?: number }
@@ -48,8 +49,7 @@ export default function NouvelleMission() {
   const refs = (r: typeof deleg) => r.data?.map((d) => <option key={d.id} value={d.id}>{name(d)}</option>);
   if (deleg.isLoading || transport.isLoading) return <Loading />;
   return (
-    <Page title={t('mis.new')}>
-      <div className="g2">
+    <Page title={t('mis.formTitle')} sub={t('mis.formSub')}>
         <Card>
           {droits.data?.saisirPerimetre && (
             <div className="chips" role="group">
@@ -58,17 +58,17 @@ export default function NouvelleMission() {
             </div>
           )}
           {pour === 'agent' && <Field label={t('mis.agent')}><select value={v.agent ?? ''} onChange={set('agent')}><option value="" />{equipe.data?.content.map((a) => <option key={a.id} value={a.id}>{a.matricule} · {a.nomFr} {a.prenomFr}</option>)}</select></Field>}
-          <Field label={t('mis.object')}><textarea value={v.objet ?? ''} onChange={set('objet')} /></Field>
+          <Field label={t('mis.object')}><input value={v.objet ?? ''} onChange={set('objet')} placeholder={t('mis.objectPh')} /></Field>
           <div className="ff c2">
             <Field label={t('mis.depart')}><select value={v.depart ?? ''} onChange={set('depart')}><option value="" />{refs(deleg)}</select></Field>
             <Field label={t('mis.arrival')}><select value={v.arrival ?? ''} onChange={set('arrival')}><option value="" />{refs(deleg)}</select></Field>
             <Field label={t('mis.dateDepart')}><input type="datetime-local" value={v.d1 ?? ''} onChange={set('d1')} /></Field>
             <Field label={t('mis.dateRetour')}><input type="datetime-local" value={v.d2 ?? ''} onChange={set('d2')} /></Field>
-            <Field label={t('mis.transport')}><select value={v.transport ?? ''} onChange={set('transport')}><option value="" />{refs(transport)}</select></Field>
             <Field label={t('mis.programme')}><select value={v.programme ?? ''} onChange={set('programme')}><option value="" />{refs(programmes)}</select></Field>
             <Field label={t('mis.remboursable')}><select value={v.remboursable} onChange={set('remboursable')}><option value="oui">{t('common.yes')}</option><option value="non">{t('common.no')}</option></select></Field>
-            {code === 'transports_en_commun' && <Field label={t('mis.fraisTransport')}><input type="number" min="0" step="0.01" value={v.frais ?? ''} onChange={set('frais')} /></Field>}
           </div>
+          <div className="tabs" role="tablist" aria-label={t('mis.transport')}>{transport.data?.map((x) => <button key={x.id} type="button" role="tab" aria-pressed={v.transport === x.id} onClick={() => setV({ ...v, transport: x.id })}>{name(x)}</button>)}</div>
+          {code === 'transports_en_commun' && <div className="ff c2"><Field label={t('mis.fraisTransport')}><input type="number" min="0" step="0.01" value={v.frais ?? ''} onChange={set('frais')} /></Field></div>}
           {code === 'voiture_privee' && (
             <div className="ff c2">
               <Field label={t('mis.vehicule')}><input value={v.vnom ?? ''} onChange={set('vnom')} /></Field>
@@ -79,26 +79,25 @@ export default function NouvelleMission() {
             </div>
           )}
           {save.error != null && <ErrorBox error={save.error} />}
-          <div className="acts">
-            <button type="button" className="btn" disabled={!ready || save.isPending} onClick={() => save.mutate(false)}>{t('mis.saveDraft')}</button>
-            <button type="button" className="btn pri" disabled={!ready || save.isPending} onClick={() => save.mutate(true)}>{t('dem.submit')}</button>
-          </div>
-        </Card>
-        <Card title={t('mis.estimate')}>
           {sim.error != null && <ErrorBox error={sim.error} />}
           {sim.data ? (
-            <dl className="kv">
-              <div><dt>{t('mis.meals1')}</dt><dd>{sim.data.repasTaux1}</dd></div>
-              <div><dt>{t('mis.meals2')}</dt><dd>{sim.data.repasTaux2}</dd></div>
-              <div><dt>{t('mis.indemnities')}</dt><dd className="mono">{fmtMoney(locale, sim.data.montantIndemnites)}</dd></div>
-              {sim.data.fraisTransport > 0 && <div><dt>{t('mis.fees')}</dt><dd className="mono">{fmtMoney(locale, sim.data.fraisTransport)}</dd></div>}
-              {sim.data.montantKm > 0 && <div><dt>{t('mis.km')}</dt><dd className="mono">{fmtMoney(locale, sim.data.montantKm)}</dd></div>}
-              <div><dt><b>{t('mis.total')}</b></dt><dd className="mono"><b>{fmtMoney(locale, sim.data.total)} {t('common.mad')}</b></dd></div>
-              {sim.data.avertissements.map((a) => <div key={a} className="ban warn"><div><small>{t.has(`mis.w_${a}`) ? t(`mis.w_${a}`) : a}</small></div></div>)}
-            </dl>
+            <>
+              <dl className="kv">
+                <div><dt>{t('mis.mealsLine')}</dt><dd className="mono">{sim.data.repasTaux1} × · {sim.data.repasTaux2} ×</dd></div>
+                <div><dt>{t('mis.indemnities')}</dt><dd className="mono">{fmtMoney(locale, sim.data.montantIndemnites)} {t('common.mad')}</dd></div>
+                <div><dt>{t('mis.fees')}</dt><dd className="mono">{fmtMoney(locale, sim.data.fraisTransport)} {t('common.mad')}</dd></div>
+                <div><dt>{t('mis.km')}</dt><dd className="mono">{fmtMoney(locale, sim.data.montantKm)} {t('common.mad')}</dd></div>
+              </dl>
+              <div className="ban ok"><div><b>{t('mis.totalPrev')} : {fmtMoney(locale, sim.data.total)} {t('common.mad')}</b></div></div>
+              {sim.data.avertissements.map((a) => <div key={a} className="ban warn"><Icon name="alert" /><div><small>{t.has(`mis.w_${a}`) ? t(`mis.w_${a}`) : a}</small></div></div>)}
+            </>
           ) : <p className="muted">{t('mis.estimateHint')}</p>}
+          <div className="ban info"><Icon name="shield" /><div><small>{t('mis.checks')}</small></div></div>
         </Card>
-      </div>
+        <div className="acts">
+          <button type="button" className="btn" disabled={!ready || save.isPending} onClick={() => save.mutate(false)}><Icon name="pencil" />{t('mis.saveDraft')}</button>
+          <button type="button" className="btn pri" disabled={!ready || save.isPending} onClick={() => save.mutate(true)}><Icon name="send" />{t('dem.submit')}</button>
+        </div>
     </Page>
   );
 }

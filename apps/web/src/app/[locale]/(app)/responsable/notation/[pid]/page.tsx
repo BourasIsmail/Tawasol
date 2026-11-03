@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { Card, ErrorBox, Field, Loading, Page } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 
 interface Camp { annee: number; baremeMax: number }
 interface D { id: string; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string; statut: string; note?: number; appreciation?: string; observations?: string }
@@ -52,7 +53,7 @@ export default function Saisie({ params }: { params: Promise<{ pid: string }> })
           </div>
         )}
       </Card>
-      <p className="rib">🔒 {t('rnota.rule')}</p>
+      <p className="rib"><Icon name="lock" />{t('rnota.rule')}</p>
       <Link className="muted" href={`/${locale}/responsable/notation`}>← {t('common.back')}</Link>
     </Page>
   );

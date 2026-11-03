@@ -21,7 +21,7 @@ export default async function Verification({ params }: { params: Promise<{ local
       <h1>{t('mis.verifyTitle')}</h1>
       {r ? (
         <section className="panel"><div className="cb">
-          <p><b>{r.valide ? `✓ ${t('mis.verifyOk')}` : `✕ ${t('mis.verifyCancelled')}`}</b></p>
+          <p><b>{r.valide ? t('mis.verifyOk') : t('mis.verifyCancelled')}</b></p>
           <dl className="kv">
             <div><dt>{t('mis.verifyType')}</dt><dd>{t.has(`mis.t_${r.type}`) ? t(`mis.t_${r.type}`) : r.type}</dd></div>
             <div><dt>{t('mis.verifyNumber')}</dt><dd className="mono">{r.numero}</dd></div>

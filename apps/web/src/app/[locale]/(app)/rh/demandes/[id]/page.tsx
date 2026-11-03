@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtDate, fmtDateTime } from '@/lib/format';
 import { Card, ErrorBox, Field, Loading, Page, Pill } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 
 interface D {
   id: string; numero?: string; typeCode: string; typeLibelle: string; statut: string; objet: string; description?: string; dateDebut?: string; dateFin?: string; nbJours?: number;
@@ -45,7 +46,7 @@ export default function RhDemande({ params }: { params: Promise<{ id: string }> 
             <div><dt>{t('fiche.structure')}</dt><dd>{locale === 'ar' ? d.agent.structureAr : d.agent.structureFr}</dd></div>
             {d.dateDebut && <div><dt>{t('dem.period')}</dt><dd className="mono">{fmtDate(locale, d.dateDebut)} → {fmtDate(locale, d.dateFin)}</dd></div>}
             {d.nbJours != null && <div><dt>{t('dem.workdays')}</dt><dd>{d.nbJours}</dd></div>}
-            {d.solde && <div><dt>{t('rval.balance')}</dt><dd>{d.solde.disponible} · <span className={`pill ${d.solde.suffisant ? 'ok' : 'bad'}`}>{d.solde.suffisant ? `✓ ${t('rval.balanceOk')}` : `✕ ${t('rval.balanceShort')}`}</span></dd></div>}
+            {d.solde && <div><dt>{t('rval.balance')}</dt><dd>{d.solde.disponible} · <span className={`pill ${d.solde.suffisant ? 'ok' : 'bad'}`}>{d.solde.suffisant ? t('rval.balanceOk') : t('rval.balanceShort')}</span></dd></div>}
             <div><dt>{t('dem.object')}</dt><dd>{d.objet}</dd></div>
             {d.description && <div><dt>{t('dem.description')}</dt><dd>{d.description}</dd></div>}
             {d.commentaireResponsable && <div><dt>{t('rhreq.managerComment')}</dt><dd>{d.commentaireResponsable}</dd></div>}
@@ -54,7 +55,7 @@ export default function RhDemande({ params }: { params: Promise<{ id: string }> 
           {d.typeCode === 'ORDRE_MISSION' && <p className="rib">{t('rhreq.missionNote')}</p>}
         </Card>
         <Card title={t('dem.history')}>
-          <ol className="tl">{d.historique.map((h, i) => <li key={i}><span className="d" aria-hidden="true">✓</span><div><b>{t(`status.${h.nouveauStatut}`)}</b><small>{h.acteur ? `${h.acteur} · ` : ''}{fmtDateTime(locale, h.creeLe)}</small>{h.commentaire && <q>{h.commentaire}</q>}</div></li>)}</ol>
+          <ol className="tl">{d.historique.map((h, i) => <li key={i}><span className="d" aria-hidden="true"><Icon name="check" /></span><div><b>{t(`status.${h.nouveauStatut}`)}</b><small>{h.acteur ? `${h.acteur} · ` : ''}{fmtDateTime(locale, h.creeLe)}</small>{h.commentaire && <q>{h.commentaire}</q>}</div></li>)}</ol>
         </Card>
       </div>
       {!d.traitable && !['approuvee', 'rejetee'].includes(d.statut) && <div className="ban warn"><div><small>{t('rhreq.notProcessable')}</small></div></div>}
@@ -62,8 +63,8 @@ export default function RhDemande({ params }: { params: Promise<{ id: string }> 
         <Card>
           <Field label={t('rhreq.comment')}><textarea value={comment} onChange={(e) => setComment(e.target.value)} /></Field>
           <div className="acts">
-            <button type="button" className="btn pri" disabled={decide.isPending || d.typeCode === 'ORDRE_MISSION'} onClick={() => decide.mutate(true)}>✓ {t('rhreq.approve')}</button>
-            <button type="button" className="btn bad" onClick={() => { if (!comment.trim()) { setMissing(true); return; } setMissing(false); decide.mutate(false); }}>✕ {t('rhreq.reject')}</button>
+            <button type="button" className="btn pri" disabled={decide.isPending || d.typeCode === 'ORDRE_MISSION'} onClick={() => decide.mutate(true)}><Icon name="check" />{t('rhreq.approve')}</button>
+            <button type="button" className="btn bad" onClick={() => { if (!comment.trim()) { setMissing(true); return; } setMissing(false); decide.mutate(false); }}><Icon name="x" />{t('rhreq.reject')}</button>
           </div>
           {missing && <p className="error" role="alert">{t('rval.commentRequired')}</p>}
           {decide.error && <ErrorBox error={decide.error} />}

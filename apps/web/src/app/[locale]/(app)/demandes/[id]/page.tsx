@@ -8,6 +8,7 @@ import { api } from '@/lib/client';
 import { fmtDate, fmtDateTime } from '@/lib/format';
 import { Chaine, type EtapeChaine } from '@/components/Chaine';
 import { Card, ErrorBox, errorMessage, Loading, Page, Pill } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 
 interface Hist { ancienStatut?: string; nouveauStatut: string; commentaire?: string; acteur?: string; creeLe: string }
 interface Piece { id: string; nomFichier: string; tailleKb?: number }
@@ -42,7 +43,7 @@ function Detail({ id }: { id: string }) {
           <ol className="tl">
             {d.historique.map((h, i) => (
               <li key={i}>
-                <span className="d" aria-hidden="true">✓</span>
+                <span className="d" aria-hidden="true"><Icon name="check" /></span>
                 <div><b>{t(`status.${h.nouveauStatut}`)}</b><small>{h.acteur ? `${h.acteur} · ` : ''}{fmtDateTime(locale, h.creeLe)}</small>{h.commentaire && <q>{h.commentaire}</q>}</div>
               </li>
             ))}

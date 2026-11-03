@@ -398,7 +398,8 @@
     "hiddenTitle": "Masqué pour vous",
     "hiddenText": "Salaire, primes et crédits de l'agent. Pour un congé maladie : motif et justificatif.",
     "attachments": "{n} pièce(s) jointe(s), consultables par la RH",
-    "bySub": "par suppléance"
+    "bySub": "par suppléance",
+    "request": "Demande"
   },
   "rstaff": {
     "title": "Mon personnel",
@@ -758,7 +759,7 @@
     "w_ETAT_EN_DOUBLE": "Numéro d'état hérité en double.",
     "w_DONNEES_KILOMETRIQUES_INCOMPLETES": "Distance, trajets ou puissance fiscale manquants.",
     "historicAmount": "Montant historique non reproductible : conservé tel que payé.",
-    "analytics": "Analytique",
+    "analytics": "Missions · analytics",
     "year": "Année",
     "byStatus": "Par statut",
     "byMonth": "Par mois",
@@ -781,7 +782,17 @@
     "t_ordre": "Ordre de mission",
     "t_etat": "État des indemnités",
     "t_etat-km": "État kilométrique",
-    "t_attestation": "Attestation"
+    "t_attestation": "Attestation",
+    "formTitle": "Demande d'ordre de mission",
+    "formSub": "Le calcul se met à jour pendant la saisie",
+    "objectPh": "Ex. Visite d'inspection du centre",
+    "mealsLine": "Repas taux 1 · taux 2",
+    "totalPrev": "Total prévisionnel",
+    "checks": "Contrôles à la soumission : départ et arrivée différents, retour postérieur au départ, aucun chevauchement avec une autre mission ni avec un congé, champs véhicule obligatoires selon le moyen de transport.",
+    "statCount": "Missions",
+    "statValidated": "Montant validé",
+    "statPending": "En attente",
+    "mine": "Mes missions"
   },
   "car": {
     "title": "Ma carrière",

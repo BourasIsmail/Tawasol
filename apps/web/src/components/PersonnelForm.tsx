@@ -7,6 +7,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtDate } from '@/lib/format';
 import { Card, ErrorBox, Field, Loading, Page, Row } from './ui';
+import { Icon } from '@/components/Icon';
 
 interface Fiche { matricule: string; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string; gradeId?: string; structureId: string; dateRecrutement: string; email?: string; telephone?: string; cin?: string; sexe?: string; situationFamiliale?: string; dateNaissance?: string; positionAdministrative?: string; echelon?: string; echelle?: number; dateEchelon?: string }
 interface Ref { id: string; code: string | number; nomFr?: string; libelleFr?: string }
@@ -66,7 +67,7 @@ export function PersonnelForm({ id }: { id?: string }) {
             <button type="button" className="btn pri" disabled={save.isPending} onClick={() => save.mutate()}>{t('rhstaff.save')}</button>
             {id && <button type="button" className="btn bad" onClick={() => off.mutate()}>{t('rhstaff.deactivate')}</button>}
           </div>
-          <p className="rib">🔒 {t('rhstaff.sensitiveNote')}</p>
+          <p className="rib"><Icon name="lock" />{t('rhstaff.sensitiveNote')}</p>
         </Card>
       )}
       {tab === 'car' && (

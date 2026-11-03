@@ -5,7 +5,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtMoney } from '@/lib/format';
-import { Card, ErrorBox, Field, Loading, Page } from '@/components/ui';
+import { Icon } from '@/components/Icon';
+import { Card, ErrorBox, Loading, Page } from '@/components/ui';
 
 interface Ligne { [k: string]: string | number }
 interface Analytique { parStatut: Ligne[]; parMois: Ligne[]; parDelegation: Ligne[]; parProgramme: Ligne[]; anomalies: Record<string, number | null> }
@@ -23,21 +24,27 @@ function Tableau({ titre, lignes, cle, libelle }: { titre: string; lignes: Ligne
 
 export default function AnalytiqueMissions() {
   const t = useTranslations();
+  const locale = useLocale();
   const [annee, setAnnee] = useState(new Date().getFullYear());
   const q = useQuery({ queryKey: ['mission-analytique', annee], queryFn: () => api<Analytique>(`missions/analytique?annee=${annee}`) });
   return (
-    <Page title={t('mis.analytics')} actions={<>
-      <a className="btn" href={`/api/bff/missions/export?annee=${annee}`} download>{t('mis.exportList')}</a>
-      <a className="btn" href={`/api/bff/missions/etat-global?annee=${annee}`} download>{t('mis.exportGlobal')}</a>
-    </>}>
-      <Field label={t('mis.year')}><input type="number" value={annee} min={2020} max={2100} onChange={(e) => setAnnee(Number(e.target.value))} /></Field>
+    <Page title={t('mis.analytics')} sub={<input aria-label={t('mis.year')} type="number" value={annee} min={2020} max={2100} onChange={(e) => setAnnee(Number(e.target.value))} style={{ width: 90, border: '1px solid var(--line)', borderRadius: 8, padding: '4px 8px', background: 'var(--surface)', color: 'inherit' }} />}>
       {q.isLoading && <Loading />}
       {q.error && <ErrorBox error={q.error} onRetry={() => q.refetch()} />}
       {q.data && (
+        <>
+        <div className="g4">
+          <div className="stat"><span>{t('mis.statCount')}</span><b>{q.data.parStatut.reduce((a, l) => a + Number(l.nombre), 0)}</b></div>
+          <div className="stat"><span>{t('mis.statValidated')}</span><b>{fmtMoney(locale, q.data.parStatut.filter((l) => ['approuvee', 'finalisee', 'payee'].includes(String(l.statut))).reduce((a, l) => a + Number(l.montant), 0))} {t('common.mad')}</b></div>
+          <div className="stat"><span>{t('mis.statPending')}</span><b style={{ color: 'var(--warn)' }}>{q.data.parStatut.filter((l) => ['soumise', 'validee_responsable'].includes(String(l.statut))).reduce((a, l) => a + Number(l.nombre), 0)}</b></div>
+        </div>
         <div className="g2">
+          <Card title={t('mis.byDeleg')}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}><a className="btn sm" href={`/api/bff/missions/export?annee=${annee}`} download><Icon name="down" />Excel</a></div>
+            <div className="bars">{q.data.parDelegation.map((l, i) => { const mx = Math.max(1, ...q.data!.parDelegation.map((x) => Number(x.nombre))); return <div key={i}><span>{l.delegation}</span><div className="meter"><i style={{ width: `${(100 * Number(l.nombre)) / mx}%` }} /></div><b>{l.nombre}</b></div>; })}</div>
+          </Card>
           <Tableau titre={t('mis.byStatus')} lignes={q.data.parStatut} cle="statut" libelle={(v) => t(`status.${v}`)} />
           <Tableau titre={t('mis.byMonth')} lignes={q.data.parMois} cle="mois" />
-          <Tableau titre={t('mis.byDeleg')} lignes={q.data.parDelegation} cle="delegation" />
           <Tableau titre={t('mis.byProgram')} lignes={q.data.parProgramme} cle="programme" />
           <Card title={t('mis.anomalies')}>
             <dl className="kv">
@@ -48,6 +55,8 @@ export default function AnalytiqueMissions() {
             </dl>
           </Card>
         </div>
+        <div className="acts"><a className="btn" href={`/api/bff/missions/etat-global?annee=${annee}`} download><Icon name="down" />{t('mis.exportGlobal')}</a></div>
+        </>
       )}
     </Page>
   );

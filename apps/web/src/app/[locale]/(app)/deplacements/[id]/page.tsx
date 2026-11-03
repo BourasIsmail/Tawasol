@@ -7,6 +7,7 @@ import { api } from '@/lib/client';
 import { fmtDate, fmtDateTime, fmtMoney } from '@/lib/format';
 import { Chaine, type EtapeChaine } from '@/components/Chaine';
 import { Card, ErrorBox, Field, Loading, Page, Pill } from '@/components/ui';
+import { Icon } from '@/components/Icon';
 
 interface Hist { seq: number; de?: string; vers: string; commentaire?: string; migre?: boolean; date: string; acteur?: string }
 interface Mission {
@@ -48,7 +49,7 @@ export default function DetailMission({ params }: { params: Promise<{ id: string
   const direct = ['soumettre', 'valider_niveau1', 'approuver', 'payer'];
 
   return (
-    <Page title={m.agentNom} sub={<span className="mono">{m.matricule}</span>} actions={<Pill status={m.statut} label={t(`status.${m.statut}`)} />}>
+    <Page title={m.agentNom} sub={<span className="mono">{m.matricule}{m.numeroOrdm ? ` · ${m.numeroOrdm}` : ''}{m.numeroEtat ? ` · ${m.numeroEtat}` : ''}</span>} actions={<Pill status={m.statut} label={t(`status.${m.statut}`)} />}>
       {m.historiqueNonReproductible && <div className="ban warn"><div><small>{t('mis.historicAmount')}</small></div></div>}
       {m.avertissements?.map((a) => <div key={a} className="ban warn"><div><small>{t.has(`mis.w_${a}`) ? t(`mis.w_${a}`) : a}</small></div></div>)}
       {m.motifRejet && <div className="ban bad"><div><b>{t('status.rejetee')}</b><small>{m.motifRejet}</small></div></div>}
@@ -123,7 +124,7 @@ export default function DetailMission({ params }: { params: Promise<{ id: string
           <Card title={t('mis.history')}>
             <ol className="tl">
               {m.historique.map((h) => (
-                <li key={h.seq}><span className="d" aria-hidden="true">✓</span>
+                <li key={h.seq}><span className="d" aria-hidden="true"><Icon name="check" /></span>
                   <div><b>{t(`status.${h.vers}`)}</b><small>{h.acteur ? `${h.acteur} · ` : ''}{fmtDate(locale, h.date)}</small>{h.commentaire && <q>{h.commentaire}</q>}</div></li>
               ))}
             </ol>

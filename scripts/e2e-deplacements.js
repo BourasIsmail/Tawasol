@@ -10,10 +10,10 @@ async function session(login){const ctx=await b.newContext({viewport:{width:1280
 let url;const mois=String(1+Math.floor(Math.random()*8)).padStart(2,'0'),jour=10+Math.floor(Math.random()*10);const D1=`2026-${mois}-${jour}T08:00`,D2=`2026-${mois}-${jour+2}T20:00`;
 const agent=await session('48217'), resp=await session('31502'), cell=await session('29044'), paie=await session('20063');
 await step('agent : saisie avec estimation en direct',async()=>{const p=agent.p;await p.goto(B+'/fr/deplacements/nouvelle');
-  await p.fill('textarea','Inspection du centre de formation');
+  await p.fill('input >> nth=0','Inspection du centre de formation');
   const opts=await p.$$eval('select >> nth=1 option',o=>o.map(x=>x.value).filter(Boolean));
   await p.selectOption('select >> nth=0',{index:1});await p.selectOption('select >> nth=1',{index:2});
-  await p.selectOption('select >> nth=3',{label:'Voiture de service'}).catch(()=>{});
+  await p.click('button[role=tab]:has-text("Voiture de service")').catch(()=>{});
   await p.fill('input[type=datetime-local] >> nth=0',D1);await p.fill('input[type=datetime-local] >> nth=1',D2);
   await p.waitForSelector('text=Total');await p.click('button:has-text("Soumettre")');await p.waitForURL(/\/deplacements\/[0-9a-f-]{36}$/);url=p.url();await p.waitForSelector('text=Soumise')});
 await step('le numéro d\'ordre n\'existe pas encore',async()=>{await agent.p.waitForSelector('text=Attribué à l\'approbation')});

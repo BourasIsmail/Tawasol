@@ -1,5 +1,6 @@
 'use client';
 
+import { Icon } from './Icon';
 import { useLocale, useTranslations } from 'next-intl';
 import { fmtDate } from '@/lib/format';
 
@@ -8,7 +9,7 @@ export interface EtapeChaine {
   nomFr: string; prenomFr: string; nomAr: string; prenomAr: string;
 }
 
-const MARK: Record<string, string> = { en_attente: '…', validee: '✓', rejetee: '✕', ignoree: '–' };
+const MARK: Record<string, string> = { en_attente: 'clock', validee: 'check', rejetee: 'x', ignoree: 'chev' };
 
 /** Avancement de la validation hiérarchique : un niveau par responsable, dans l'ordre. L'état est dit par le texte et le symbole, jamais par la couleur seule. */
 export function Chaine({ etapes }: { etapes?: EtapeChaine[] | null }) {
@@ -21,7 +22,7 @@ export function Chaine({ etapes }: { etapes?: EtapeChaine[] | null }) {
     <ol className="tl">
       {etapes.map((e) => (
         <li key={e.ordre} aria-current={e.ordre === actif ? 'step' : undefined}>
-          <span className="d" aria-hidden="true">{MARK[e.statut] ?? '•'}</span>
+          <span className="d" aria-hidden="true"><Icon name={MARK[e.statut] ?? 'clock'} /></span>
           <div>
             <b>{t('chain.level', { n: e.ordre, total: etapes.length })} · {t(`chain.n_${e.niveau}`)}</b>
             <small>
