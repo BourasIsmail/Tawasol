@@ -304,7 +304,9 @@
     "DATE_EXAMEN_REQUISE": "La date de l'examen est obligatoire.",
     "NB_POSTES_INVALIDE": "Nombre de postes invalide.",
     "AUCUN_BULLETIN_PUBLIE": "Aucun bulletin publié : l'attestation de salaire est impossible.",
-    "NOT_YOUR_TURN": "Ce n'est pas encore (ou plus) le tour de votre niveau de validation."
+    "NOT_YOUR_TURN": "Ce n'est pas encore (ou plus) le tour de votre niveau de validation.",
+    "AUTO_MODIFICATION": "Vous ne pouvez pas modifier votre propre compte.",
+    "ROLE_INCONNU": "Rôle inconnu ou inactif."
   },
   "nav2": {
     "team": "Équipe",
@@ -775,5 +777,43 @@
     "notYet": "Ce niveau n'est pas encore le vôtre : vous consultez la demande en attendant votre tour.",
     "level": "Niveau {n} sur {total}",
     "none": "Aucun responsable dans la hiérarchie : la demande va directement à la RH."
+  },
+  "nav4": {
+    "comptes": "Comptes et rôles",
+    "audit": "Journal d'audit"
+  },
+  "adm": {
+    "title": "Comptes et rôles",
+    "intro": "Gérez les accès, pas le contenu : l'administrateur n'a aucun accès aux dossiers, à la paie ni aux missions des agents.",
+    "search": "Rechercher (identifiant, matricule, nom)",
+    "all": "Tous",
+    "legacy": "Comptes hérités de Suivi RH",
+    "active": "Actifs",
+    "inactive": "Désactivés",
+    "login": "Identifiant",
+    "agent": "Agent",
+    "role": "Rôle",
+    "status": "État",
+    "lastLogin": "Dernière connexion",
+    "enable": "Activer",
+    "disable": "Désactiver",
+    "enabled": "Actif",
+    "disabled": "Désactivé",
+    "legacyTag": "hérité",
+    "mustChange": "mot de passe à changer",
+    "noRole": "(rôle par défaut du profil)",
+    "confirmLegacy": "Réactiver ce compte hérité de Suivi RH ? Son titulaire devra changer son mot de passe à la prochaine connexion.",
+    "confirmDisable": "Désactiver ce compte ? Ses sessions ouvertes sont coupées immédiatement.",
+    "saved": "Modification enregistrée.",
+    "permissions": "Permissions du rôle",
+    "auditTitle": "Journal d'audit",
+    "auditIntro": "Qui a fait quoi, sur quel objet et quand. Le contenu avant/après n'est jamais affiché ici.",
+    "filter": "Filtrer par action (ex. MISSION, ADMIN)",
+    "when": "Date",
+    "action": "Action",
+    "object": "Objet",
+    "by": "Par",
+    "next": "Suivant",
+    "prev": "Précédent"
   }
 }

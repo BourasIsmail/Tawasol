@@ -2,7 +2,8 @@
 
 import type { ReactNode } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client';
@@ -29,6 +30,11 @@ const RH = [
   { id: 'lots', href: '/rh/lots' },
   { id: 'notation', href: '/rh/notation' },
   { id: 'publications', href: '/rh/publications' },
+] as const;
+
+const ADMIN = [
+  { id: 'comptes', href: '/admin/comptes', mobile: true },
+  { id: 'audit', href: '/admin/audit', mobile: true },
 ] as const;
 
 const NAV = [
@@ -67,6 +73,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const count = unread.data?.nonLues ?? 0;
 
   const isRh = me.data?.role === 'rh';
+  const isAdmin = me.data?.role === 'admin';
+  const router = useRouter();
+  useEffect(() => { if (isAdmin && !path.startsWith(`/${locale}/admin`)) router.replace(`/${locale}/admin/comptes`); }, [isAdmin, path, locale, router]);
   const manager = !!(me.data?.responsable || me.data?.suppleant);
   const team = TEAM.filter((n) => n.id !== 'substitute' || me.data?.responsable);
   const link = (n: { id: string; href: string }, ns: string) => (
@@ -74,21 +83,24 @@ export function AppShell({ children }: { children: ReactNode }) {
       <span>{t(`${ns}.${n.id}`)}</span>{n.id === 'notifications' && count > 0 && <b className="badge">{count}</b>}
     </Link>
   );
-  const mobileItems = isRh
+  const mobileItems = isAdmin
+    ? ADMIN.map((n) => link(n, 'nav4'))
+    : isRh
     ? [...RH.filter((n) => 'mobile' in n).map((n) => link(n, 'nav3')), <Link key="me" href={`/${locale}/dashboard`} className={path.startsWith(`/${locale}/rh`) ? '' : 'on'}><span>{t('nav2.mine')}</span>{count > 0 && <b className="badge">{count}</b>}</Link>]
     : manager
     ? [...team.filter((n) => 'mobile' in n).map((n) => link(n, 'nav2')), <Link key="me" href={`/${locale}/dashboard`} className={path.startsWith(`/${locale}/responsable`) ? '' : 'on'}><span>{t('nav2.mine')}</span>{count > 0 && <b className="badge">{count}</b>}</Link>]
     : NAV.filter((n) => 'mobile' in n).map((n) => link(n, 'nav'));
-  const blocked = me.data && ((path.startsWith(`/${locale}/responsable`) && !manager) || (path.startsWith(`/${locale}/rh`) && !isRh));
+  const blocked = me.data && ((path.startsWith(`/${locale}/responsable`) && !manager) || (path.startsWith(`/${locale}/rh`) && !isRh) || (path.startsWith(`/${locale}/admin`) && !isAdmin));
 
   return (
     <div className="app">
       <aside className="side">
         <div className="logo">{t('app.name')}</div>
         <nav aria-label="Navigation">
-          {isRh && <><small className="grp">{t('nav3.title')}</small>{RH.map((n) => link(n, 'nav3'))}<small className="grp">{t('nav2.mine')}</small></>}
-          {manager && <><small className="grp">{t('nav2.team')}</small>{team.map((n) => link(n, 'nav2'))}<small className="grp">{t('nav2.mine')}</small></>}
-          {NAV.map((n) => link(n, 'nav'))}
+          {isAdmin && ADMIN.map((n) => link(n, 'nav4'))}
+          {!isAdmin && isRh && <><small className="grp">{t('nav3.title')}</small>{RH.map((n) => link(n, 'nav3'))}<small className="grp">{t('nav2.mine')}</small></>}
+          {!isAdmin && manager && <><small className="grp">{t('nav2.team')}</small>{team.map((n) => link(n, 'nav2'))}<small className="grp">{t('nav2.mine')}</small></>}
+          {!isAdmin && NAV.map((n) => link(n, 'nav'))}
         </nav>
         <button type="button" className="logout" onClick={logout}>{t('nav.logout')}</button>
       </aside>
@@ -101,9 +113,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <main className="main">
           {me.isLoading && <Loading />}
-          {me.data && !me.data.personnel && <p className="ban">{t('nav.noAgent')}</p>}
+          {me.data && !me.data.personnel && !isAdmin && <p className="ban">{t('nav.noAgent')}</p>}
           {blocked && <p className="ban bad" role="alert">{t('errors.ACCESS_DENIED')}</p>}
-          {me.data?.personnel && !blocked && children}
+          {((me.data?.personnel && !isAdmin) || (isAdmin && path.startsWith(`/${locale}/admin`))) && !blocked && children}
         </main>
       </div>
       <nav className="bt" aria-label="Navigation">{mobileItems}</nav>
