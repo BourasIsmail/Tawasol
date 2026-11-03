@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api, upload } from '@/lib/client';
+import { Icon } from '@/components/Icon';
 import { Card, ErrorBox, errorMessage, Field, Loading, Page } from '@/components/ui';
 
 type Famille = 'conge' | 'att' | 'avance' | 'form' | 'mis';
@@ -27,6 +28,7 @@ function Form() {
   const deleg = useQuery({ queryKey: ['ref-deleg'], queryFn: () => api<Ref[]>('referentiels/delegations'), enabled: famille === 'mis' });
   const transport = useQuery({ queryKey: ['ref-transport'], queryFn: () => api<Ref[]>('referentiels/moyens-transport'), enabled: famille === 'mis' });
   const solde = useQuery({ queryKey: ['solde'], queryFn: () => api<{ disponible: number }>('me/solde-conge'), enabled: famille === 'conge' });
+  const apercu = useQuery({ queryKey: ['conge-apercu', v.d1, v.d2], queryFn: () => api<{ jours: number; soldeAvant: number; soldeApres: number; chevauchement: boolean }>(`me/conge-apercu?debut=${v.d1}&fin=${v.d2}`), enabled: famille === 'conge' && !!v.d1 && !!v.d2 && v.d2 >= v.d1 });
   const name = (r: Ref) => (locale === 'ar' ? r.nomAr ?? r.libelleAr : r.nomFr ?? r.libelleFr) ?? r.id;
 
   function payload() {
@@ -56,7 +58,7 @@ function Form() {
   }
 
   return (
-    <Page title={t('dem.new')}>
+    <Page title={t('dem.new')} sub={t('dem.chooseFamily')}>
       <div className="chips" role="group">
         {FAMILLES.map((f) => <Link key={f} className="chip" aria-pressed={f === famille} href={`/${locale}/demandes/nouvelle?famille=${f}`}>{t(`dem.fam_${f}`)}</Link>)}
       </div>
@@ -64,14 +66,19 @@ function Form() {
         {famille === 'conge' && (<>
           <div className="ff c2">
             <Field label={t('dem.leaveType')}><select value={v.leaveType} onChange={set('leaveType')}>{['CONGE_ANNUEL', 'CONGE_MALADIE', 'CONGE_EXCEPTION'].map((c) => <option key={c} value={c}>{t(`dem.t_${c}`)}</option>)}</select></Field>
-            <Field label={t('dem.motive')}><input value={v.motive ?? ''} onChange={set('motive')} /></Field>
+            <Field label={t('dem.motive')}><input value={v.motive ?? ''} onChange={set('motive')} placeholder={t('dem.motiveHint')} /></Field>
             <Field label={t('dem.from')}><input type="date" value={v.d1 ?? ''} onChange={set('d1')} /></Field>
             <Field label={t('dem.to')}><input type="date" value={v.d2 ?? ''} onChange={set('d2')} /></Field>
           </div>
-          {solde.data && <p className="muted">{t('dem.balanceInfo', { n: solde.data.disponible })}</p>}
-          <p className="muted">{t('dem.workdaysNote')}</p>
-          {v.leaveType === 'CONGE_MALADIE' && <p className="muted">{t('dem.sickNote')}</p>}
-          {v.leaveType === 'CONGE_EXCEPTION' && <p className="muted">{t('dem.excNote')}</p>}
+          {apercu.data && (
+            <dl className="kv">
+              <div><dt>{t('dem.workdaysCounted')}</dt><dd>{apercu.data.jours} {t('dem.workdays').toLowerCase()}</dd></div>
+              <div><dt>{t('dem.balanceBeforeAfter')}</dt><dd className="mono">{String(apercu.data.soldeAvant).replace('.', ',')} → {String(apercu.data.soldeApres).replace('.', ',')}</dd></div>
+              <div><dt>{t('dem.excluded')}</dt><dd>{t('dem.excludedValue')}</dd></div>
+            </dl>
+          )}
+          {apercu.data && (apercu.data.chevauchement ? <p className="err">{t('dem.overlap')}</p> : <p className="okt">{t('dem.noOverlap')}</p>)}
+          <p className="muted">{t('dem.leaveNote')}</p>
         </>)}
         {famille === 'att' && (<>
           <div className="ff c2">
@@ -109,16 +116,18 @@ function Form() {
           <p className="muted">{t('dem.missionNote')}</p>
         </>)}
         {(famille === 'conge' || famille === 'form') && (
-          <Field label={t('dem.attach')}>
-            <input type="file" multiple accept="application/pdf,image/jpeg,image/png" onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
-          </Field>
+          <label className="drop" style={{ cursor: 'pointer' }}>
+            <Icon name="up" /><span>{t('dem.attachDrop')}</span>
+            {files.length > 0 && <small>{files.map((f) => f.name).join(', ')}</small>}
+            <input type="file" multiple accept="application/pdf,image/jpeg,image/png" onChange={(e) => setFiles(Array.from(e.target.files ?? []))} style={{ display: 'none' }} />
+          </label>
         )}
         {error != null && <ErrorBox error={error} />}
-        <div className="acts">
-          <button type="button" className="btn" disabled={busy} onClick={() => save(false)}>{t('dem.saveDraft')}</button>
-          <button type="button" className="btn pri" disabled={busy} onClick={() => save(true)}>{t('dem.submit')}</button>
-        </div>
       </Card>
+      <div className="acts">
+        <button type="button" className="btn" disabled={busy} onClick={() => save(false)}><Icon name="pencil" />{t('dem.saveDraft')}</button>
+        <button type="button" className="btn pri" disabled={busy} onClick={() => save(true)}><Icon name="send" />{t('dem.submit')}</button>
+      </div>
     </Page>
   );
 }

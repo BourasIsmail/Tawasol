@@ -20,10 +20,14 @@ public class DemandeController {
 
     private final DemandeService service;
     private final SoldeCongeService soldes;
+    private final ma.entraide.tawassol.param.JoursOuvrablesService jours;
+    private final DemandeRepository repo;
 
-    public DemandeController(DemandeService service, SoldeCongeService soldes) {
+    public DemandeController(DemandeService service, SoldeCongeService soldes, ma.entraide.tawassol.param.JoursOuvrablesService jours, DemandeRepository repo) {
         this.service = service;
         this.soldes = soldes;
+        this.jours = jours;
+        this.repo = repo;
     }
 
     @GetMapping("/types-demande")
@@ -61,5 +65,18 @@ public class DemandeController {
     public SoldeCongeService.Solde solde(@AuthenticationPrincipal AuthenticatedUser u, @RequestParam(required = false) Integer annee) {
         if (u.personnelId() == null) throw new ma.entraide.tawassol.common.ApiException(HttpStatus.FORBIDDEN, "NO_PERSONNEL", "Ce compte n'est lié à aucun agent");
         return soldes.get(u.personnelId(), annee == null ? LocalDate.now().getYear() : annee, null);
+    }
+
+    /** Aperçu d'un congé pendant la saisie : jours ouvrables décomptés, solde avant et après, chevauchement. N'enregistre rien. */
+    @GetMapping("/me/conge-apercu")
+    public Map<String, Object> congeApercu(@AuthenticationPrincipal AuthenticatedUser u, @RequestParam LocalDate debut, @RequestParam LocalDate fin) {
+        if (u.personnelId() == null) throw new ma.entraide.tawassol.common.ApiException(HttpStatus.FORBIDDEN, "NO_PERSONNEL", "Ce compte n'est lié à aucun agent");
+        if (fin.isBefore(debut)) throw new ma.entraide.tawassol.common.ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_DATES", "La date de fin précède la date de début");
+        int n = jours.compter(debut, fin);
+        var solde = soldes.get(u.personnelId(), debut.getYear(), null);
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("jours", n); out.put("soldeAvant", solde.disponible()); out.put("soldeApres", solde.disponible().subtract(BigDecimal.valueOf(n)));
+        out.put("chevauchement", repo.chevauche(u.personnelId(), "", debut, fin));
+        return out;
     }
 }

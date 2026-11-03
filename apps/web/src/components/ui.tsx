@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { ApiRequestError } from '@/lib/client';
+import { Icon } from './Icon';
 
 export function Card({ title, action, children, flush }: { title?: ReactNode; action?: ReactNode; children: ReactNode; flush?: boolean }) {
   return (
@@ -29,11 +30,11 @@ const TONE: Record<string, string> = {
   brouillon: 'n', soumise: 'i', validee_responsable: 't', approuvee: 'ok', finalisee: 't', payee: 'ok', rejetee_responsable: 'bad', rejetee: 'bad', annulee: 'n',
   nouvelle: 'i', en_cours: 'warn', resolue: 'ok',
 };
-const MARK: Record<string, string> = { approuvee: '✓', finalisee: '✓', payee: '€', validee_responsable: '✓', resolue: '✓', rejetee: '✕', rejetee_responsable: '✕', annulee: '⊘', brouillon: '✎', soumise: '➤' };
+const MARK: Record<string, string> = { approuvee: 'check', finalisee: 'check', payee: 'wallet', validee_responsable: 'check', resolue: 'check', rejetee: 'x', rejetee_responsable: 'x', annulee: 'ban', brouillon: 'pencil', soumise: 'send', nouvelle: 'send', en_cours: 'clock' };
 
 /** Le statut est dit par le texte, une icône et la couleur : jamais par la couleur seule. */
 export function Pill({ status, label }: { status: string; label: string }) {
-  return <span className={`pill ${TONE[status] ?? 'n'}`}><span aria-hidden="true">{MARK[status] ?? '•'}</span>{label}</span>;
+  return <span className={`pill ${TONE[status] ?? 'n'}`}>{MARK[status] && <Icon name={MARK[status]} />}{label}</span>;
 }
 
 export function Row({ main, sub, right, href, onClick }: { main: ReactNode; sub?: ReactNode; right?: ReactNode; href?: string; onClick?: () => void }) {
@@ -61,6 +62,7 @@ export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => v
   const t = useTranslations();
   return (
     <div className="ban bad" role="alert">
+      <Icon name="alert" />
       <div><b>{t('common.error')}</b><small>{errorMessage(t, error)}</small></div>
       {onRetry && <button type="button" className="btn sm" onClick={onRetry}>{t('common.retry')}</button>}
     </div>

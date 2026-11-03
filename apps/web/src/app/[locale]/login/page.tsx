@@ -7,7 +7,7 @@ export default async function LoginPage({ params }: { params: Promise<{ locale: 
   setRequestLocale(locale);
   const t = await getTranslations();
   return (
-    <AuthShell title={t('login.title')} subtitle={t('app.tagline')}>
+    <AuthShell brand subtitle={t('app.tagline')}>
       <LoginForm />
     </AuthShell>
   );

@@ -34,12 +34,13 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="card" noValidate>
+    <form onSubmit={onSubmit} style={{ display: 'contents' }} noValidate>
       <label><span>{t('login.login')}</span><input name="login" autoComplete="username" required /></label>
       <label><span>{t('login.password')}</span><input name="password" type="password" autoComplete="current-password" required /></label>
-      {error && <p role="alert" className="error">{t(`errors.${error}`)}</p>}
-      <button type="submit" disabled={busy}>{t('login.submit')}</button>
-      <a href={`/${locale}/forgot`} className="muted" style={{ textAlign: 'center' }}>{t('login.forgot')}</a>
+      {error && <p role="alert" className="err">{t(`errors.${error}`)}</p>}
+      <button type="submit" className="btn pri full" disabled={busy}>{t('login.submit')}</button>
+      <a href={`/${locale}/forgot`} style={{ textAlign: 'center', color: 'var(--brand-text)' }}>{t('login.forgot')}</a>
+      <small className="muted" style={{ textAlign: 'center' }}>{t('login.lockNote')}</small>
     </form>
   );
 }

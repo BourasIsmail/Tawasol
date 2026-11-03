@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
+import { Icon } from '@/components/Icon';
 import { AuthCard } from '@/components/AuthCard';
 
 export default function Forgot() {
@@ -26,7 +27,7 @@ export default function Forgot() {
           <p className="muted" style={{ margin: 0 }}>{t('auth.forgotText')}</p>
           <label><span>{t('login.login')}</span><input name="login" autoComplete="username" required /></label>
           {error && <p className="error" role="alert">{t('errors.generic')}</p>}
-          <button type="submit" disabled={busy}>{t('auth.send')}</button>
+          <button type="submit" disabled={busy}><Icon name="send" />{t('auth.send')}</button>
         </form>
       )}
       <Link href={`/${locale}/login`} className="muted" style={{ textAlign: 'center' }}>{t('auth.back')}</Link>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
+import { Icon } from '@/components/Icon';
 import { AuthCard, NewPassword } from '@/components/AuthCard';
 
 export default function ChangePassword() {
@@ -28,7 +29,7 @@ export default function ChangePassword() {
       <label><span>{t('auth.current')}</span><input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} /></label>
       <NewPassword onChange={(valid, value) => setState({ valid, value })} />
       {error && <p className="error" role="alert">{t(`errors.${error}`)}</p>}
-      <button type="button" disabled={!state.valid || !current} onClick={submit}>{t('auth.save')}</button>
+      <button type="button" disabled={!state.valid || !current} onClick={submit}><Icon name="check" />{t('auth.save')}</button>
     </AuthCard>
   );
 }

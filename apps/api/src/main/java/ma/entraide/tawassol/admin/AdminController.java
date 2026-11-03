@@ -25,13 +25,19 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
     public record ModificationCompte(String roleId, Boolean estActif) {}
+    public record Designation(String personnelId, String type, String cibleId, java.time.LocalDate dateDebut) {}
 
     private final JdbcTemplate jdbc;
     private final NamedParameterJdbcTemplate named;
     private final PermissionService permissions;
     private final AuditService audit;
+    private final ma.entraide.tawassol.auth.PasswordResetService reset;
+    private final ma.entraide.tawassol.hierarchy.HierarchyIndex hierarchy;
 
-    public AdminController(JdbcTemplate jdbc, NamedParameterJdbcTemplate named, PermissionService permissions, AuditService audit) { this.jdbc = jdbc; this.named = named; this.permissions = permissions; this.audit = audit; }
+    public AdminController(JdbcTemplate jdbc, NamedParameterJdbcTemplate named, PermissionService permissions, AuditService audit,
+                           ma.entraide.tawassol.auth.PasswordResetService reset, ma.entraide.tawassol.hierarchy.HierarchyIndex hierarchy) {
+        this.jdbc = jdbc; this.named = named; this.permissions = permissions; this.audit = audit; this.reset = reset; this.hierarchy = hierarchy;
+    }
 
     @GetMapping("/roles")
     public List<Map<String, Object>> roles(@AuthenticationPrincipal AuthenticatedUser u) {
@@ -94,6 +100,92 @@ public class AdminController {
         // le journal ne montre jamais le contenu avant/après : seulement qui, quoi, sur quel objet, quand
         List<Map<String, Object>> rows = named.queryForList("SELECT j.id, j.action, j.entite, j.entite_id AS entiteId, j.cree_le AS creeLe, ut.login FROM journal_audit j LEFT JOIN utilisateur ut ON ut.id = j.utilisateur_id" + w + " ORDER BY j.cree_le DESC, j.id LIMIT :lim OFFSET :off", p);
         return new PageResult<>(rows, total, page, size);
+    }
+
+    /** Réinitialisation : l'administrateur ne voit ni ne choisit jamais le mot de passe, le lien part par e-mail à l'adresse de la fiche (même circuit que « mot de passe oublié »). */
+    @PostMapping("/utilisateurs/{id}/reinitialiser")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void reinitialiser(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String id) {
+        permissions.exiger(u, "role.gerer");
+        List<String> logins = jdbc.queryForList("SELECT login FROM utilisateur WHERE id = ?", String.class, id);
+        if (logins.isEmpty()) throw ApiException.notFound();
+        reset.request(logins.get(0));
+        jdbc.update("UPDATE utilisateur SET doit_changer_mdp = 1 WHERE id = ?", id);
+        audit.record(u.userId(), "ADMIN_MDP_REINITIALISE", "utilisateur", id, null, null);
+    }
+
+    // ---- rôles et périmètres : qui est responsable de quoi (alimente la chaîne de validation) ----
+
+    @GetMapping("/perimetres")
+    public List<Map<String, Object>> perimetres(@AuthenticationPrincipal AuthenticatedUser u) {
+        permissions.exiger(u, "role.gerer");
+        return jdbc.queryForList("""
+                SELECT rp.id, rp.type_perimetre AS type, rp.date_debut AS dateDebut, rp.date_fin AS dateFin, p.matricule, p.nom_fr AS nomFr, p.prenom_fr AS prenomFr, p.nom_ar AS nomAr, p.prenom_ar AS prenomAr,
+                       COALESCE(s.nom_fr, d.nom_deleg_fr, c.nom_coord_fr) AS cibleFr, COALESCE(s.nom_ar, d.nom_deleg_ar, c.nom_coord_ar) AS cibleAr
+                FROM responsable_perimetre rp JOIN personnel p ON p.id = rp.personnel_id
+                LEFT JOIN structure s ON s.id = rp.structure_id LEFT JOIN delegation_province d ON d.id = rp.delegation_id LEFT JOIN coordination_region c ON c.id = rp.coordination_id
+                WHERE rp.est_actif = 1 AND (rp.date_fin IS NULL OR rp.date_fin >= CURRENT_DATE) ORDER BY rp.type_perimetre, p.nom_fr LIMIT 500""");
+    }
+
+    @GetMapping("/cibles")
+    public List<Map<String, Object>> cibles(@AuthenticationPrincipal AuthenticatedUser u, @RequestParam String type) {
+        permissions.exiger(u, "role.gerer");
+        return switch (type) {
+            case "structure" -> jdbc.queryForList("SELECT id, nom_fr AS nomFr, nom_ar AS nomAr FROM structure WHERE est_active = 1 AND a_completer = 0 ORDER BY nom_fr LIMIT 500");
+            case "delegation" -> jdbc.queryForList("SELECT id, nom_deleg_fr AS nomFr, nom_deleg_ar AS nomAr FROM delegation_province WHERE est_active = 1 ORDER BY nom_deleg_fr");
+            case "coordination" -> jdbc.queryForList("SELECT id, nom_coord_fr AS nomFr, nom_coord_ar AS nomAr FROM coordination_region WHERE est_active = 1 ORDER BY nom_coord_fr");
+            default -> throw new ApiException(HttpStatus.BAD_REQUEST, "TYPE_INVALIDE", "Type de périmètre invalide");
+        };
+    }
+
+    @PostMapping("/perimetres")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public Map<String, String> designer(@AuthenticationPrincipal AuthenticatedUser u, @RequestBody Designation q) {
+        permissions.exiger(u, "role.gerer");
+        String col = switch (String.valueOf(q.type())) { case "structure" -> "structure_id"; case "delegation" -> "delegation_id"; case "coordination" -> "coordination_id";
+            default -> throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "TYPE_INVALIDE", "Type de périmètre invalide"); };
+        List<String> pers = jdbc.queryForList("SELECT id FROM personnel WHERE (id = ? OR matricule = ?) AND est_actif = 1", String.class, q.personnelId(), q.personnelId());
+        if (pers.isEmpty()) throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "PERSONNE_INCONNUE", "Agent actif introuvable");
+        Integer cible = jdbc.queryForObject("SELECT COUNT(*) FROM " + (col.equals("structure_id") ? "structure" : col.equals("delegation_id") ? "delegation_province" : "coordination_region") + " WHERE id = ?", Integer.class, q.cibleId());
+        if (cible == null || cible == 0) throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "CIBLE_INCONNUE", "Structure, délégation ou coordination introuvable");
+        Integer deja = jdbc.queryForObject("SELECT COUNT(*) FROM responsable_perimetre WHERE personnel_id = ? AND type_perimetre = ? AND " + col + " = ? AND est_actif = 1 AND (date_fin IS NULL OR date_fin >= CURRENT_DATE)", Integer.class, pers.get(0), q.type(), q.cibleId());
+        if (deja != null && deja > 0) throw new ApiException(HttpStatus.CONFLICT, "DESIGNATION_EXISTANTE", "Cette désignation existe déjà");
+        String id = java.util.UUID.randomUUID().toString();
+        jdbc.update("INSERT INTO responsable_perimetre (id, personnel_id, type_perimetre, " + col + ", date_debut) VALUES (?,?,?,?,?)", id, pers.get(0), q.type(), q.cibleId(), java.sql.Date.valueOf(q.dateDebut() == null ? java.time.LocalDate.now() : q.dateDebut()));
+        hierarchy.invalidate();
+        audit.record(u.userId(), "ADMIN_PERIMETRE_CREE", "responsable_perimetre", id, null, null);
+        return Map.of("id", id);
+    }
+
+    @PostMapping("/perimetres/{id}/cloturer")
+    @Transactional
+    public void cloturer(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String id) {
+        permissions.exiger(u, "role.gerer");
+        int n = jdbc.update("UPDATE responsable_perimetre SET est_actif = 0, date_fin = CURRENT_DATE WHERE id = ? AND est_actif = 1", id);
+        if (n == 0) throw ApiException.notFound();
+        hierarchy.invalidate();
+        audit.record(u.userId(), "ADMIN_PERIMETRE_CLOTURE", "responsable_perimetre", id, null, null);
+    }
+
+    // ---- référentiels et paramètres de conformité (lecture) ----
+
+    @GetMapping("/referentiels/{type}")
+    public List<Map<String, Object>> referentiel(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String type) {
+        permissions.exiger(u, "role.gerer");
+        return switch (type) {
+            case "types-demande" -> jdbc.queryForList("SELECT code, libelle AS libelle, est_actif AS actif, IF(validation_responsable = 1, 'requise', 'facultative') AS detail FROM type_demande ORDER BY code");
+            case "transports" -> jdbc.queryForList("SELECT code, libelle_fr AS libelle, est_actif AS actif, libelle_ar AS detail FROM moyen_transport ORDER BY code");
+            case "programmes" -> jdbc.queryForList("SELECT code, nom_fr AS libelle, est_actif AS actif, CONCAT(nombre_cycles_an, ' cycle(s) par an') AS detail FROM programme_mission ORDER BY code LIMIT 200");
+            case "types-document" -> jdbc.queryForList("SELECT id AS code, libelle, 1 AS actif, dossier AS detail FROM type_document ORDER BY libelle");
+            default -> throw ApiException.notFound();
+        };
+    }
+
+    @GetMapping("/parametres")
+    public List<Map<String, Object>> parametres(@AuthenticationPrincipal AuthenticatedUser u) {
+        permissions.exiger(u, "role.gerer");
+        return jdbc.queryForList("SELECT cle, valeur, date_effet AS dateEffet, reference_texte AS referenceTexte, statut_validation AS statut FROM parametre ORDER BY cle, date_effet DESC");
     }
 
     private static boolean b(Object o) { return o instanceof Boolean x ? x : o instanceof Number n && n.intValue() != 0; }

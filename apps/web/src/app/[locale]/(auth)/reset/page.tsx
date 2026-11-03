@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Icon } from '@/components/Icon';
 import { AuthCard, NewPassword } from '@/components/AuthCard';
 
 function Form() {
@@ -26,7 +27,7 @@ function Form() {
         <>
           <NewPassword onChange={(valid, value) => setState({ valid, value })} />
           {error && <p className="error" role="alert">{t(`errors.${error}`)}</p>}
-          <button type="button" disabled={!state.valid || !token} onClick={submit}>{t('auth.save')}</button>
+          <button type="button" disabled={!state.valid || !token} onClick={submit}><Icon name="check" />{t('auth.save')}</button>
         </>
       )}
       <Link href={`/${locale}/login`} className="muted" style={{ textAlign: 'center' }}>{t('auth.back')}</Link>

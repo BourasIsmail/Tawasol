@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtDate, fmtMoney, fmtMonth } from '@/lib/format';
+import { Icon } from '@/components/Icon';
 import { Card, Empty, ErrorBox, Loading, Page, Pill, Row } from '@/components/ui';
 
 type Tab = 'payslips' | 'bonuses' | 'credits' | 'missions';
@@ -27,8 +28,8 @@ export default function Paie() {
       {q.data && (q.data.length === 0 ? <Card><Empty title={t('pay.empty')} /></Card> : (
         <Card flush>
           {q.data.map((r) => {
-            if (tab === 'payslips') return <Row key={r.id} main={fmtMonth(locale, Number(r.annee), Number(r.mois))} sub={`${t('pay.family')} ${money(r.allocFamiliale)} · ${t('pay.mutual')} ${money(r.retenueMutuelle)}`}
-              right={<><b className="mono">{money(r.salaireNet)}</b><a className="btn sm" href={`/api/bff/me/bulletins/${r.id}/pdf`} target="_blank" rel="noopener">{t('pay.pdf')}</a></>} />;
+            if (tab === 'payslips') return <Row key={r.id} main={(() => { const m = fmtMonth(locale, Number(r.annee), Number(r.mois)); return m.charAt(0).toUpperCase() + m.slice(1); })()} sub={`${t('pay.family')} ${money(r.allocFamiliale)} · ${t('pay.mutual')} ${money(r.retenueMutuelle)}`}
+              right={<><b className="mono">{money(r.salaireNet)}</b><a className="btn sm" href={`/api/bff/me/bulletins/${r.id}/pdf`} target="_blank" rel="noopener"><Icon name="down" />{t('pay.pdf')}</a></>} />;
             if (tab === 'bonuses') return <Row key={r.id} main={fmtDate(locale, String(r.datePrime))} sub={`${t('pay.gross')} ${money(r.montantBrut)} · ${t('pay.tax')} ${money(r.ir)}`} right={<b className="mono">{money(r.montantNet)}</b>} />;
             if (tab === 'credits') return <Row key={r.id} main={String(r.banque)} sub={`${t('pay.monthly')} ${money(r.mensualite)} · ${t('pay.monthsLeft')} ${r.nbMoisRestants}`} right={<b className="mono">{money(r.montantRestant)}</b>} />;
             return <Row key={r.id} main={String(r.numeroOrdm ?? r.objet)} sub={`${fmtDate(locale, String(r.dateDepart))} → ${fmtDate(locale, String(r.dateRetour))}`} right={<span className="pill n">{String(r.statut)}</span>} />;

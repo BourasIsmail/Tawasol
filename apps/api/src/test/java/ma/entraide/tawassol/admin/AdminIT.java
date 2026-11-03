@@ -65,4 +65,43 @@ class AdminIT extends IntegrationTestBase {
         assertTrue(body.contains("ADMIN_COMPTE_MODIFIE"));
         assertFalse(body.contains("avant") || body.contains("apres"));
     }
+
+    @Test void designationsDeResponsablesAlimententLaChaine() throws Exception {
+        String d = data.delegation("ADD");
+        String structure = data.structure(d, null, "ADDS");
+        String agent = data.personnel(structure, "Chaine"), resp = data.personnel(structure, "Resp");
+        String matResp = jdbc.queryForObject("SELECT matricule FROM personnel WHERE id = ?", String.class, resp);
+        send(HttpMethod.POST, "/api/v1/admin/perimetres", tAgent, Map.of("personnelId", matResp, "type", "structure", "cibleId", structure)).andExpect(status().isForbidden());
+        // création par matricule, refus des doublons et des cibles inconnues
+        send(HttpMethod.POST, "/api/v1/admin/perimetres", tAdmin, Map.of("personnelId", matResp, "type", "structure", "cibleId", structure)).andExpect(status().isCreated());
+        send(HttpMethod.POST, "/api/v1/admin/perimetres", tAdmin, Map.of("personnelId", matResp, "type", "structure", "cibleId", structure)).andExpect(status().isConflict());
+        send(HttpMethod.POST, "/api/v1/admin/perimetres", tAdmin, Map.of("personnelId", matResp, "type", "structure", "cibleId", "inconnue")).andExpect(status().isUnprocessableEntity());
+        send(HttpMethod.POST, "/api/v1/admin/perimetres", tAdmin, Map.of("personnelId", "ZZ", "type", "structure", "cibleId", structure)).andExpect(status().isUnprocessableEntity());
+        JsonNode l = get("/api/v1/admin/perimetres", tAdmin, 200);
+        assertEquals(1, l.size()); assertEquals("structure", l.get(0).get("type").asText());
+        // la désignation est effective tout de suite : la demande de l'agent a ce responsable
+        String uag = data.user("chaine", "agent", agent, false);
+        String t = bearer("chaine");
+        String dem = idOf(send(HttpMethod.POST, "/api/v1/demandes", t, Map.of("typeCode", "AUTRE", "objet", "x", "description", "y")).andExpect(status().isCreated()));
+        send(HttpMethod.POST, "/api/v1/demandes/" + dem + "/soumettre", t, null).andExpect(status().isOk());
+        assertEquals(resp, jdbc.queryForObject("SELECT responsable_personnel_id FROM demande WHERE id = ?", String.class, dem));
+        // clôture : plus de responsable pour les nouvelles demandes
+        send(HttpMethod.POST, "/api/v1/admin/perimetres/" + l.get(0).get("id").asText() + "/cloturer", tAdmin, null).andExpect(status().isOk());
+        assertEquals(0, get("/api/v1/admin/perimetres", tAdmin, 200).size());
+        String dem2 = idOf(send(HttpMethod.POST, "/api/v1/demandes", t, Map.of("typeCode", "AUTRE", "objet", "x2", "description", "y")).andExpect(status().isCreated()));
+        send(HttpMethod.POST, "/api/v1/demandes/" + dem2 + "/soumettre", t, null).andExpect(status().isOk());
+        assertNull(jdbc.queryForObject("SELECT responsable_personnel_id FROM demande WHERE id = ?", String.class, dem2));
+    }
+
+    @Test void reinitialisationParEmailEtReferentielsEnLecture() throws Exception {
+        send(HttpMethod.POST, "/api/v1/admin/utilisateurs/" + agentId + "/reinitialiser", tAdmin, null).andExpect(status().isAccepted());
+        send(HttpMethod.POST, "/api/v1/admin/utilisateurs/" + agentId + "/reinitialiser", tAgent, null).andExpect(status().isForbidden());
+        assertEquals(1, jdbc.queryForObject("SELECT doit_changer_mdp FROM utilisateur WHERE id = ?", Integer.class, agentId));
+        assertTrue(get("/api/v1/admin/referentiels/types-demande", tAdmin, 200).toString().contains("CONGE_ANNUEL"));
+        assertTrue(get("/api/v1/admin/referentiels/transports", tAdmin, 200).toString().contains("voiture_privee"));
+        get("/api/v1/admin/referentiels/inconnu", tAdmin, 404);
+        JsonNode p = get("/api/v1/admin/parametres", tAdmin, 200);
+        assertTrue(p.toString().contains("conge.annuel.droit_jours") && p.toString().contains("non_valide"));
+        get("/api/v1/admin/parametres", tRh, 403);
+    }
 }

@@ -3,9 +3,10 @@
 import { useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { AuthShell } from './AuthShell';
+import { Icon } from './Icon';
 
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
-  return <AuthShell title={title}><div className="card">{children}</div></AuthShell>;
+  return <AuthShell title={title}>{children}</AuthShell>;
 }
 
 export function policyChecks(p: string) {
@@ -22,9 +23,9 @@ export function NewPassword({ onChange }: { onChange: (valid: boolean, value: st
   return (
     <>
       <label><span>{t('newPassword')}</span><input type="password" autoComplete="new-password" value={p} onChange={(e) => update(e.target.value, c)} /></label>
-      <ul className="pol" aria-live="polite">{checks.map(([k, ok]) => <li key={k} className={ok ? 'y' : ''}><span aria-hidden="true">{ok ? '✓' : '○'}</span>{t(k)}</li>)}</ul>
+      <ul className="pol" aria-live="polite">{checks.map(([k, ok]) => <li key={k} className={ok ? 'y' : ''}><Icon name={ok ? 'check' : 'clock'} />{t(k)}</li>)}</ul>
       <label><span>{t('confirm')}</span><input type="password" autoComplete="new-password" value={c} onChange={(e) => update(p, e.target.value)} /></label>
-      {c && p !== c && <p className="error" role="alert">{t('mismatch')}</p>}
+      {c && p !== c && <p className="err" role="alert">{t('mismatch')}</p>}
       <small className="muted">{t('policyNote')}</small>
     </>
   );

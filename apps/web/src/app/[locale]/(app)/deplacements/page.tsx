@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
@@ -12,7 +13,9 @@ import { MISSION_STATUTS, useDroits, type Mission } from '@/lib/missions';
 export default function Deplacements() {
   const t = useTranslations();
   const locale = useLocale();
-  const [statut, setStatut] = useState('');
+  const initial = useSearchParams().get('statut') ?? '';
+  const [statut, setStatut] = useState(initial);
+  useEffect(() => setStatut(initial), [initial]);
   const droits = useDroits();
   const q = useQuery({ queryKey: ['missions', statut], queryFn: () => api<{ content: Mission[] }>(`missions?size=50${statut ? `&statut=${statut}` : ''}`) });
   return (

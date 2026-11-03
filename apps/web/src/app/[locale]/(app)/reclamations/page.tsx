@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtDate } from '@/lib/format';
+import { Icon } from '@/components/Icon';
 import { Card, Empty, ErrorBox, Field, Loading, Page, Pill, Row } from '@/components/ui';
 
 interface Rec { id: string; objet: string; statut: string; typeReclamation: string; reponse?: string; creeLe: string }
@@ -29,7 +30,7 @@ export default function Reclamations() {
         <Field label={t('rec.object')}><input value={f.objet} onChange={(e) => setF({ ...f, objet: e.target.value })} /></Field>
         <Field label={t('rec.description')}><textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
         {create.error && <ErrorBox error={create.error} />}
-        <button type="button" className="btn pri" disabled={create.isPending || !f.objet.trim() || !f.description.trim()} onClick={() => create.mutate()}>{t('rec.submit')}</button>
+        <button type="button" className="btn pri full" disabled={create.isPending || !f.objet.trim() || !f.description.trim()} onClick={() => create.mutate()}><Icon name="send" />{t('rec.submit')}</button>
       </Card>
     </Page>
   );

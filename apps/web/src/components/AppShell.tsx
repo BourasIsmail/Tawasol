@@ -1,54 +1,65 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client';
+import { Icon } from './Icon';
 import { Loading } from './ui';
 
-const TEAM = [
-  { id: 'respDashboard', href: '/responsable/dashboard', mobile: true },
-  { id: 'validation', href: '/responsable/validation', mobile: true },
-  { id: 'staff', href: '/responsable/personnel', mobile: true },
-  { id: 'notation', href: '/responsable/notation', mobile: true },
-  { id: 'deplacements', href: '/deplacements' },
-  { id: 'calendar', href: '/responsable/calendrier' },
-  { id: 'substitute', href: '/responsable/suppleance' },
-] as const;
+/** Entrées de navigation de la maquette, par profil : même ordre, mêmes icônes, mêmes libellés. m = présent dans la barre basse du téléphone. */
+export interface Item { id: string; icon: string; href: string; m?: boolean; sep?: boolean }
 
-const RH = [
-  { id: 'dashboard', href: '/rh/dashboard', mobile: true },
-  { id: 'requests', href: '/rh/demandes', mobile: true },
-  { id: 'deplacements', href: '/deplacements' },
-  { id: 'staff', href: '/rh/personnel' },
-  { id: 'avancement', href: '/rh/avancement' },
-  { id: 'examens', href: '/rh/examens' },
-  { id: 'imports', href: '/rh/imports' },
-  { id: 'lots', href: '/rh/lots' },
-  { id: 'notation', href: '/rh/notation' },
-  { id: 'publications', href: '/rh/publications' },
-] as const;
+const AGENT: Item[] = [
+  { id: 'dashboard', icon: 'home', href: '/dashboard', m: true },
+  { id: 'fiche', icon: 'user', href: '/fiche' },
+  { id: 'demandes', icon: 'file', href: '/demandes', m: true },
+  { id: 'missions', icon: 'plane', href: '/deplacements' },
+  { id: 'paie', icon: 'wallet', href: '/paie', m: true },
+  { id: 'note', icon: 'star', href: '/note' },
+  { id: 'reclamations', icon: 'alert', href: '/reclamations' },
+  { id: 'documents', icon: 'book', href: '/documents' },
+  { id: 'notifications', icon: 'bell', href: '/notifications', m: true },
+];
 
-const ADMIN = [
-  { id: 'comptes', href: '/admin/comptes', mobile: true },
-  { id: 'audit', href: '/admin/audit', mobile: true },
-] as const;
+const RESP: Item[] = [
+  { id: 'rDash', icon: 'home', href: '/responsable/dashboard', m: true },
+  { id: 'validation', icon: 'inbox', href: '/responsable/validation', m: true },
+  { id: 'staff', icon: 'tree', href: '/responsable/personnel', m: true },
+  { id: 'notation', icon: 'star', href: '/responsable/notation', m: true },
+  { id: 'calendar', icon: 'cal', href: '/responsable/calendrier' },
+  { id: 'substitute', icon: 'users', href: '/responsable/suppleance' },
+  { id: 'rMissions', icon: 'plane', href: '/deplacements' },
+  { id: 'mySpace', icon: 'user', href: '/dashboard', sep: true },
+];
 
-const NAV = [
-  { id: 'dashboard', href: '/dashboard', mobile: true },
-  { id: 'fiche', href: '/fiche' },
-  { id: 'demandes', href: '/demandes', mobile: true },
-  { id: 'deplacements', href: '/deplacements' },
-  { id: 'carriere', href: '/carriere' },
-  { id: 'paie', href: '/paie', mobile: true },
-  { id: 'note', href: '/note' },
-  { id: 'reclamations', href: '/reclamations' },
-  { id: 'documents', href: '/documents' },
-  { id: 'notifications', href: '/notifications', mobile: true },
-] as const;
+const RH: Item[] = [
+  { id: 'hrDash', icon: 'home', href: '/rh/dashboard', m: true },
+  { id: 'hrRequests', icon: 'inbox', href: '/rh/demandes', m: true },
+  { id: 'hrStaff', icon: 'users', href: '/rh/personnel' },
+  { id: 'imports', icon: 'up', href: '/rh/imports' },
+  { id: 'hrMissions', icon: 'plane', href: '/deplacements' },
+  { id: 'cell', icon: 'plane', href: '/deplacements?statut=validee_responsable' },
+  { id: 'pay', icon: 'wallet', href: '/deplacements?statut=finalisee' },
+  { id: 'career', icon: 'tree', href: '/rh/avancement' },
+  { id: 'hrNotation', icon: 'star', href: '/rh/notation' },
+  { id: 'hrPub', icon: 'book', href: '/rh/publications' },
+  { id: 'hrDocs', icon: 'file', href: '/rh/demandes?statut=approuvee' },
+  { id: 'reports', icon: 'chart', href: '/deplacements/analytique' },
+  { id: 'mySpace', icon: 'user', href: '/dashboard', sep: true },
+];
+
+const ADMIN: Item[] = [
+  { id: 'accounts', icon: 'users', href: '/admin/comptes', m: true },
+  { id: 'roles', icon: 'tree', href: '/admin/perimetres', m: true },
+  { id: 'refs', icon: 'list', href: '/admin/referentiels', m: true },
+  { id: 'params', icon: 'settings', href: '/admin/parametres', m: true },
+  { id: 'audit', icon: 'shield', href: '/admin/audit' },
+];
+
+const AGENT_PATHS = ['/dashboard', '/fiche', '/demandes', '/paie', '/note', '/reclamations', '/documents', '/notifications', '/carriere', '/plus'];
 
 interface Me { userId: string; role: string; responsable: boolean; suppleant: boolean; personnel?: { prenomFr: string; nomFr: string; prenomAr: string; nomAr: string } }
 
@@ -56,69 +67,116 @@ export function useMe() {
   return useQuery({ queryKey: ['me'], queryFn: () => api<Me>('me') });
 }
 
+/** Liste de navigation du profil courant (utilisée par la barre latérale, la barre basse et la page « Plus »). */
+export function useNav(): { items: Item[]; space: 'agent' | 'responsable' | 'rh' | 'admin' } {
+  const locale = useLocale();
+  const path = usePathname().replace(new RegExp(`^/${locale}`), '') || '/';
+  const me = useMe();
+  const role = me.data?.role;
+  const manager = !!(me.data?.responsable || me.data?.suppleant);
+  let space: 'agent' | 'responsable' | 'rh' | 'admin' = 'agent';
+  if (role === 'admin') space = 'admin';
+  else if (path.startsWith('/rh')) space = 'rh';
+  else if (path.startsWith('/responsable')) space = 'responsable';
+  else if (AGENT_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) space = 'agent';
+  else if (role === 'rh') space = 'rh';
+  else if (manager) space = 'responsable';
+  const items = space === 'admin' ? ADMIN : space === 'rh' ? RH : space === 'responsable' ? RESP : AGENT;
+  return { items, space };
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const t = useTranslations();
   const locale = useLocale();
-  const path = usePathname();
+  const pathFull = usePathname();
+  const path = pathFull.replace(new RegExp(`^/${locale}`), '') || '/';
+  const search = useSearchParams();
+  const router = useRouter();
   const me = useMe();
+  const { items, space } = useNav();
   const unread = useQuery({ queryKey: ['notif-count'], queryFn: () => api<{ nonLues: number }>('notifications?limit=1'), refetchInterval: 60_000, enabled: !!me.data?.personnel });
-  const active = (href: string) => path.startsWith(`/${locale}${href}`);
+  const isRh = me.data?.role === 'rh';
+  const isAdmin = me.data?.role === 'admin';
+  const manager = !!(me.data?.responsable || me.data?.suppleant);
+
+  useEffect(() => { if (isAdmin && !path.startsWith('/admin')) router.replace(`/${locale}/admin/comptes`); }, [isAdmin, path, locale, router]);
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.href = `/${locale}/login`;
   }
 
-  const name = me.data?.personnel ? (locale === 'ar' ? `${me.data.personnel.prenomAr} ${me.data.personnel.nomAr}` : `${me.data.personnel.prenomFr} ${me.data.personnel.nomFr}`) : '';
+  const name = me.data?.personnel ? (locale === 'ar' ? `${me.data.personnel.prenomAr} ${me.data.personnel.nomAr}` : `${me.data.personnel.prenomFr} ${me.data.personnel.nomFr}`) : isAdmin ? t('nv.role_admin') : '';
+  const initials = name.split(' ').map((p) => p[0]).slice(0, 2).join('');
   const count = unread.data?.nonLues ?? 0;
 
-  const isRh = me.data?.role === 'rh';
-  const isAdmin = me.data?.role === 'admin';
-  const router = useRouter();
-  useEffect(() => { if (isAdmin && !path.startsWith(`/${locale}/admin`)) router.replace(`/${locale}/admin/comptes`); }, [isAdmin, path, locale, router]);
-  const manager = !!(me.data?.responsable || me.data?.suppleant);
-  const team = TEAM.filter((n) => n.id !== 'substitute' || me.data?.responsable);
-  const link = (n: { id: string; href: string }, ns: string) => (
-    <Link key={n.id} href={`/${locale}${n.href}`} className={active(n.href) ? 'on' : ''} aria-current={active(n.href) ? 'page' : undefined}>
-      <span>{t(`${ns}.${n.id}`)}</span>{n.id === 'notifications' && count > 0 && <b className="badge">{count}</b>}
-    </Link>
-  );
-  const mobileItems = isAdmin
-    ? ADMIN.map((n) => link(n, 'nav4'))
-    : isRh
-    ? [...RH.filter((n) => 'mobile' in n).map((n) => link(n, 'nav3')), <Link key="me" href={`/${locale}/dashboard`} className={path.startsWith(`/${locale}/rh`) ? '' : 'on'}><span>{t('nav2.mine')}</span>{count > 0 && <b className="badge">{count}</b>}</Link>]
-    : manager
-    ? [...team.filter((n) => 'mobile' in n).map((n) => link(n, 'nav2')), <Link key="me" href={`/${locale}/dashboard`} className={path.startsWith(`/${locale}/responsable`) ? '' : 'on'}><span>{t('nav2.mine')}</span>{count > 0 && <b className="badge">{count}</b>}</Link>]
-    : NAV.filter((n) => 'mobile' in n).map((n) => link(n, 'nav'));
-  const blocked = me.data && ((path.startsWith(`/${locale}/responsable`) && !manager) || (path.startsWith(`/${locale}/rh`) && !isRh) || (path.startsWith(`/${locale}/admin`) && !isAdmin));
+  /** Actif : même chemin ; pour les entrées qui partagent un chemin (filtres de statut), le paramètre statut départage. */
+  const isOn = (it: Item): boolean => {
+    const [hrefPath, query] = it.href.split('?');
+    if (path !== hrefPath && !path.startsWith(`${hrefPath}/`)) return false;
+    const wanted = query ? new URLSearchParams(query).get('statut') : null;
+    const current = search.get('statut');
+    const rivals = items.filter((x) => x !== it && x.href.split('?')[0] === hrefPath);
+    if (wanted) return current === wanted;
+    if (rivals.length) return !rivals.some((r) => new URLSearchParams(r.href.split('?')[1] ?? '').get('statut') === current && current);
+    return true;
+  };
+
+  const label = (it: Item) => t(`nv.${it.id}`);
+  const mobile = items.filter((i) => i.m).slice(0, 4);
+  const chip = isAdmin ? t('nv.role_admin') : space === 'rh' ? t('nv.role_rh') : space === 'responsable' ? t('nv.role_resp') : isRh || manager ? t('nv.role_agent') : t('nv.role_agent');
+  const rib = space === 'admin' ? 'rib_ad' : space === 'rh' ? 'rib_rh' : space === 'responsable' ? 'rib_rs' : 'rib_ag';
+  const blocked = me.data && ((path.startsWith('/responsable') && !manager) || (path.startsWith('/rh') && !isRh) || (path.startsWith('/admin') && !isAdmin));
+  const canShow = (me.data?.personnel && !isAdmin) || (isAdmin && path.startsWith('/admin'));
+  // un responsable ou la RH qui consulte son espace agent garde un moyen de revenir à son espace de travail
+  const back = space === 'agent' && (isRh || manager) && path !== '/plus' ? { href: isRh ? '/rh/dashboard' : '/responsable/dashboard', text: isRh ? t('nv.backToRh') : t('nv.backToResp') } : null;
 
   return (
     <div className="app">
       <aside className="side">
-        <div className="logo">{t('app.name')}</div>
-        <nav aria-label="Navigation">
-          {isAdmin && ADMIN.map((n) => link(n, 'nav4'))}
-          {!isAdmin && isRh && <><small className="grp">{t('nav3.title')}</small>{RH.map((n) => link(n, 'nav3'))}<small className="grp">{t('nav2.mine')}</small></>}
-          {!isAdmin && manager && <><small className="grp">{t('nav2.team')}</small>{team.map((n) => link(n, 'nav2'))}<small className="grp">{t('nav2.mine')}</small></>}
-          {!isAdmin && NAV.map((n) => link(n, 'nav'))}
+        <div className="logo">
+          <svg width="26" height="26" viewBox="0 0 38 38" aria-hidden="true"><circle cx="15" cy="19" r="11" fill="#fff" opacity=".9" /><circle cx="24" cy="19" r="11" fill="none" stroke="#fff" strokeWidth="3" /></svg>
+          <span>{t('app.name')}</span>
+        </div>
+        <nav aria-label="Navigation" style={{ display: 'contents' }}>
+          {items.map((it) => (
+            <span key={it.id} style={{ display: 'contents' }}>
+              {it.sep && <hr />}
+              <Link href={`/${locale}${it.href}`} className={isOn(it) ? 'on' : ''} aria-current={isOn(it) ? 'page' : undefined}>
+                <Icon name={it.icon} /><span>{label(it)}</span>{it.id === 'notifications' && count > 0 && <b className="badge">{count}</b>}
+              </Link>
+            </span>
+          ))}
+          {back && <Link href={`/${locale}${back.href}`}><Icon name="chev" className="chev" /><span>{back.text}</span></Link>}
         </nav>
         <button type="button" className="logout" onClick={logout}>{t('nav.logout')}</button>
       </aside>
       <div className="col">
         <div className="tb">
+          <div className="s"><Icon name="search" /><span>{t('nv.search')}</span></div>
           <span className="grow" />
-          <Link className="lang" href={`/${locale === 'fr' ? 'ar' : 'fr'}${path.replace(/^\/(fr|ar)/, '')}`} hrefLang={locale === 'fr' ? 'ar' : 'fr'}>{locale === 'fr' ? 'العربية' : 'Français'}</Link>
-          <span className="av" aria-hidden="true">{name.split(' ').map((p) => p[0]).slice(0, 2).join('')}</span>
-          <b className="uname">{name}</b>
+          <div className="u">
+            <span className="pill">{chip}</span>
+            <Link href={`/${locale}/notifications`} className="bell" aria-label={t('nav.notifications')}><Icon name="bell" />{count > 0 && <b className="badge">{count}</b>}</Link>
+            <div className="av" aria-hidden="true">{initials}</div>
+            <b className="uname">{name}</b>
+            <Link className="lang" href={`/${locale === 'fr' ? 'ar' : 'fr'}${path}`} hrefLang={locale === 'fr' ? 'ar' : 'fr'}>{locale === 'fr' ? 'العربية' : 'Français'}</Link>
+          </div>
         </div>
         <main className="main">
+          <div className="rib"><Icon name="lock" />{t(`nv.${rib}`)}</div>
           {me.isLoading && <Loading />}
           {me.data && !me.data.personnel && !isAdmin && <p className="ban">{t('nav.noAgent')}</p>}
           {blocked && <p className="ban bad" role="alert">{t('errors.ACCESS_DENIED')}</p>}
-          {((me.data?.personnel && !isAdmin) || (isAdmin && path.startsWith(`/${locale}/admin`))) && !blocked && children}
+          {canShow && !blocked && children}
         </main>
       </div>
-      <nav className="bt" aria-label="Navigation">{mobileItems}</nav>
+      <nav className="bt" aria-label="Navigation">
+        {mobile.map((it) => (
+          <Link key={it.id} href={`/${locale}${it.href}`} className={isOn(it) ? 'on' : ''}><Icon name={it.icon} /><span>{label(it)}</span>{it.id === 'notifications' && count > 0 && <b className="badge">{count}</b>}</Link>
+        ))}
+        <Link href={`/${locale}/plus`} className={path === '/plus' ? 'on' : ''}><Icon name="menu" /><span>{t('nv.more')}</span></Link>
+      </nav>
     </div>
   );
 }

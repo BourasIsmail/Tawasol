@@ -147,6 +147,9 @@ public class ValidationService {
         LocalDate today = LocalDate.now(clock);
         var scope = guard.personnelScope(u);
         Map<String, Object> out = new LinkedHashMap<>();
+        // délai moyen de réponse du responsable (90 derniers jours), en jours
+        out.put("delaiMoyenJours", jdbc.queryForObject("SELECT ROUND(AVG(DATEDIFF(date_validation_responsable, cree_le)), 1) FROM demande WHERE responsable_personnel_id IN (:ids) AND date_validation_responsable IS NOT NULL AND date_validation_responsable >= DATE_SUB(:today, INTERVAL 90 DAY)", new MapSqlParameterSource("ids", ids).addValue("today", today), java.math.BigDecimal.class));
+        out.put("structure", scope.structureIds().isEmpty() ? null : jdbc.queryForList("SELECT nom_fr FROM structure WHERE id IN (:s) ORDER BY nom_fr LIMIT 1", new MapSqlParameterSource("s", scope.structureIds()), String.class).stream().findFirst().orElse(null));
         out.put("aValider", jdbc.queryForObject("SELECT COUNT(*) FROM demande WHERE responsable_personnel_id IN (:ids) AND personnel_id <> :me AND statut = 'soumise'",
                 new MapSqlParameterSource("ids", ids).addValue("me", u.personnelId()), Integer.class));
         if (scope.structureIds().isEmpty()) {
