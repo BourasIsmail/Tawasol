@@ -29,7 +29,9 @@ services:
       mysql: { condition: service_healthy }
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
-      DB_URL: jdbc:mysql://mysql:3306/tawassol?useUnicode=true&characterEncoding=utf8&connectionTimeZone=Africa/Casablanca&forceConnectionTimeZoneToSession=true
+      # Les dates de la base sont des heures locales marocaines sans fuseau : l'API tourne en UTC pour les lire et les écrire telles quelles.
+      # (Avec le fuseau Africa/Casablanca, une heure comprise dans le changement d'heure du ramadan, ex. 02:30, ne peut pas être lue.)
+      DB_URL: jdbc:mysql://mysql:3306/tawassol?useUnicode=true&characterEncoding=utf8
       DB_USER: tawassol
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requis (32 caractères minimum)}
@@ -38,7 +40,7 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       OPENAPI_ENABLED: ${OPENAPI_ENABLED:-false}
       STORAGE_PATH: /data/files
-      TZ: Africa/Casablanca
+      TZ: UTC
     volumes:
       - files_data:/data/files
     ports:

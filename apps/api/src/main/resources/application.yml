@@ -2,7 +2,7 @@ spring:
   application:
     name: tawassol-api
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/tawassol?useUnicode=true&characterEncoding=utf8&connectionTimeZone=Africa/Casablanca&forceConnectionTimeZoneToSession=true}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/tawassol?useUnicode=true&characterEncoding=utf8}
     username: ${DB_USER:tawassol}
     password: ${DB_PASSWORD:}
   jpa:

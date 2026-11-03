@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 WORKDIR /app
 COPY --from=build /src/target/tawassol-api-*.jar app.jar
 USER tawassol
-ENV TZ=Africa/Casablanca JAVA_OPTS="-XX:MaxRAMPercentage=75"
+ENV TZ=UTC JAVA_OPTS="-XX:MaxRAMPercentage=75"
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 CMD curl -fs http://localhost:8080/actuator/health || exit 1
 ENTRYPOINT ["sh","-c","exec java $JAVA_OPTS -jar app.jar"]
