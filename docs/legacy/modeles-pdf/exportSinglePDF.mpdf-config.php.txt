@@ -1,0 +1,81 @@
+    public function exportSinglePDF(string $deplacement_id) {
+        if(Auth::user()?->role?->can_call_deplacement_export){
+            // Retrieve data from models
+            if(Auth::user()?->delegation_id > 0){
+                $deplacements = DeplacementPropre::where('id', '=', $deplacement_id)->whereHas('personne', function ($query) { $query->where('affectation_id', '=', Auth::user()?->delegation_id); })->whereHas('status', function ($query) { $query->where('code', '=', 'generated')->orWhere('code', '=', 'created')->orWhere('code', '=', 'modified')->orWhere('code', '=', 'finalized'); })->get();
+            }elseif(!Auth::user()?->delegation_id && Auth::user()?->coordination_id > 0){
+                $deplacements = DeplacementPropre::where('id', '=', $deplacement_id)->whereHas('personne.affectation', function ($query) { $query->where('coordination_id', '=', Auth::user()?->coordination_id); })->whereHas('status', function ($query) { $query->where('code', '=', 'generated')->orWhere('code', '=', 'created')->orWhere('code', '=', 'modified')->orWhere('code', '=', 'finalized'); })->get();
+            }else{
+                $deplacements = DeplacementPropre::where('id', '=', $deplacement_id)->whereHas('status', function ($query) { $query->where('code', '=', 'generated')->orWhere('code', '=', 'created')->orWhere('code', '=', 'modified')->orWhere('code', '=', 'finalized'); })->get();
+            }
+            $data = [
+                'show_order' => false,
+                'show_summary' => false,
+                'title' => 'تنقل فعلي - '. $deplacements[0]?->personne?->nom_prenom_ar,
+                'deplacements' => $deplacements,
+            ];
+
+            // Show elements
+            if($deplacements[0]?->status?->code == 'generated' || $deplacements[0]?->status?->code == 'created' || $deplacements[0]?->status?->code == 'modified') {
+                $data['show_order'] = true;
+                $data['show_summary'] = false;
+            }elseif($deplacements[0]?->status?->code == 'finalized') {
+                $data['show_order'] = true;
+                $data['show_summary'] = true;
+            }
+
+            // Create mPDF instance
+            $mpdf = new Mpdf(['mode' => 'utf-8', 'format' => 'A4']);
+            $mpdf->SetDirectionality('rtl');
+
+            // Register the "Arabic Typesetting" font
+            $mpdf->autoScriptToLang = true;
+            $mpdf->autoLangToFont = true;
+            $mpdf->fontdata['arabtype'] = array(
+                'R' => "./assets/fonts/arabic-typesetting.ttf",
+                'B' => "./assets/fonts/arabic-typesetting.ttf",
+            );
+            $mpdf->default_font = 'arabtype';
+
+            // Add header
+            $headerHtml = '<div style="text-align: center;">
+                <img src="./assets/logo.png" style="width: 65%;display: block; margin: 0 auto;">
+            </div>';
+            $mpdf->SetHTMLHeader($headerHtml);
+
+            // Add footer
+            if(auth()->user()->coordination?->code == 'siege_centrale' || auth()->user()->delegation?->code == 'siege_centrale' || (!auth()->user()->coordination?->code && !auth()->user()->delegation?->code)){ // Siege
+                $footerHtml = '
+                    <table dir="rtl" style="width: 100%; border-collapse: collapse; font-size: 9px; line-height: 20px; font-family: \'arabtype\', Arial, sans-serif;">
+                        <tr>
+                            <td dir="rtl" style="text-align: right;">
+                                <span>20 زنقة المرينيين حسان - ص.ب 750 الرباط</span>
+                                <br/>
+                                <span>الهاتف 50 51 70 37 05 - الفاكس 73 43 70 37 05</span>
+                            </td>
+                            <td dir="ltr" style="text-align: left;">
+                                <span>20,rue El Mariniyine ,BP 750 - Hassan RABAT</span>
+                                <br/>
+                                <span>Tel 05 37 70 51 50 - Fax 05 37 70 43 73</span>
+                            </td>
+                        </tr>
+                    </table>';
+            }else{ // Autres
+                $footerHtml = '';
+            }
+            $mpdf->SetHTMLFooter($footerHtml);
+
+            // Load the HTML view
+            $html = view('layouts.ordm_model', $data)->render();
+            $mpdf->WriteHTML($html);
+            $pdfContent = $mpdf->Output('', 'S');
+
+            // Set headers for file download
+            return response()->make($pdfContent, 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => "attachment; filename=\"DEPLACEMENT {$deplacements[0]?->personne?->nom_prenom_fr}.pdf\"",
+            ]);
+        }else{
+            return abort(401, 'Unauthorized');
+        }
+    }

@@ -1,0 +1,11 @@
+# Surcharge de développement : docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# Active les profils dev et demo (80 agents anonymisés) et ouvre les ports de la base et de MinIO.
+services:
+  mysql:
+    ports: ["3306:3306"]
+  minio:
+    ports: ["9000:9000", "9001:9001"]
+  api:
+    environment:
+      SPRING_PROFILES_ACTIVE: dev,demo
+      OPENAPI_ENABLED: "true"

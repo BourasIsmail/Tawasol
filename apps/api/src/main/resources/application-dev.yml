@@ -1,0 +1,7 @@
+# Profil de développement local : valeurs faibles, jamais en production.
+tawassol:
+  security:
+    jwt-secret: ${JWT_SECRET:dev-only-secret-change-me-0123456789abcdef}
+  bootstrap:
+    admin-password: ${TAWASSOL_ADMIN_INITIAL_PASSWORD:DevAdmin!2026-change}
+    demo-password: ${TAWASSOL_DEMO_PASSWORD:Demo!2026-Tawassol}

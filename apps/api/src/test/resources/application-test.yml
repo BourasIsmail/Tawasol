@@ -1,0 +1,10 @@
+tawassol:
+  hierarchy-cache-ttl: 0s
+  security:
+    jwt-secret: test-secret-test-secret-test-secret-0123456789
+    login-rate-per-minute: 100000
+spring:
+  flyway:
+    clean-disabled: false
+  storage:
+    path: target/test-files

@@ -1,0 +1,5 @@
+Polices embarquées dans les PDF générés par TAWASSOL.
+- Amiri (Khaled Hosny) : SIL Open Font License 1.1, usage commercial et embarquement autorisés.
+- Noto Sans (Google) : SIL Open Font License 1.1.
+- DejaVu Sans : licence Bitstream Vera / domaine public pour les modifications DejaVu.
+Arabic Typesetting (Microsoft) n'est PAS utilisée : licence non redistribuable.

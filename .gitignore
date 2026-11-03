@@ -1,0 +1,15 @@
+node_modules/
+target/
+.next/
+.turbo/
+.env
+*.log
+.idea/
+.vscode/
+apps/api/data/
+
+scripts/*.png
+scripts/*.pdf
+migration-out/
+*.xlsx
+apps/api/target/

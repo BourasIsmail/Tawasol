@@ -1,0 +1,40 @@
+'use client';
+
+import { useLocale, useTranslations } from 'next-intl';
+import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/client';
+import { Card, ErrorBox, Loading, Page } from '@/components/ui';
+
+interface D { aTraiter: number; horsDelai: number; effectif: number; dossiersIncomplets: number; reclamationsOuvertes: number; lotsEnBrouillon: number; notesASoumettre: number; demandesParStatut: { statut: string; n: number }[] }
+
+export default function RhDashboard() {
+  const t = useTranslations();
+  const locale = useLocale();
+  const q = useQuery({ queryKey: ['rhdash'], queryFn: () => api<D>('rh/tableau-de-bord') });
+  if (q.isLoading) return <Loading />;
+  if (q.error) return <ErrorBox error={q.error} onRetry={() => q.refetch()} />;
+  const d = q.data!;
+  const max = Math.max(1, ...d.demandesParStatut.map((x) => Number(x.n)));
+  return (
+    <Page title={t('nav3.dashboard')}>
+      <div className="g4">
+        <div className="stat"><span>{t('rhdash.toProcess')}</span><b>{d.aTraiter}</b><small>{d.horsDelai > 0 ? `${d.horsDelai} ${t('rhdash.late').toLowerCase()}` : ''}</small></div>
+        <div className="stat"><span>{t('rhdash.headcount')}</span><b>{d.effectif}</b></div>
+        <div className="stat"><span>{t('rhdash.incomplete')}</span><b>{d.dossiersIncomplets}</b></div>
+        <div className="stat"><span>{t('rhdash.claims')}</span><b>{d.reclamationsOuvertes}</b></div>
+      </div>
+      <div className="g2">
+        <Card title={t('rhdash.byStatus')}>
+          <div className="bars">{d.demandesParStatut.map((x) => <div key={x.statut}><span>{t(`status.${x.statut}`)}</span><div className="meter"><i style={{ width: `${(100 * Number(x.n)) / max}%` }} /></div><b>{x.n}</b></div>)}</div>
+        </Card>
+        <Card title={t('rhdash.alerts')} flush>
+          <a className="rw link" href={`/${locale}/rh/demandes`}><div className="rm"><b>{t('rhdash.toProcess')}</b></div><div className="rr"><b>{d.aTraiter}</b></div></a>
+          <a className="rw link" href={`/${locale}/rh/lots`}><div className="rm"><b>{t('rhdash.draftLots')}</b></div><div className="rr"><b>{d.lotsEnBrouillon}</b></div></a>
+          <a className="rw link" href={`/${locale}/rh/notation`}><div className="rm"><b>{t('rhdash.notesToCheck')}</b></div><div className="rr"><b>{d.notesASoumettre}</b></div></a>
+          <a className="rw link" href={`/${locale}/rh/publications`}><div className="rm"><b>{t('rhdash.claims')}</b></div><div className="rr"><b>{d.reclamationsOuvertes}</b></div></a>
+        </Card>
+      </div>
+    </Page>
+  );
+}

@@ -1,0 +1,6 @@
+# Profil de la commande tawassol-migrate : port aléatoire, l'application s'arrête à la fin de la reprise.
+server:
+  port: 0
+tawassol:
+  migrate:
+    enabled: true

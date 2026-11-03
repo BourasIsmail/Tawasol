@@ -1,0 +1,95 @@
+# Pile complète : docker compose up --build
+# Copiez .env.example en .env et renseignez les secrets avant de démarrer.
+name: tawassol
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--default-time-zone=+01:00"]
+    environment:
+      MYSQL_DATABASE: tawassol
+      MYSQL_USER: tawassol
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requis}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD requis}
+      TZ: Africa/Casablanca
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER requis}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requis}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./apps/api
+    restart: unless-stopped
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      DB_URL: jdbc:mysql://mysql:3306/tawassol?useUnicode=true&characterEncoding=utf8&connectionTimeZone=Africa/Casablanca&forceConnectionTimeZoneToSession=true
+      DB_USER: tawassol
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requis (32 caractères minimum)}
+      TAWASSOL_ADMIN_INITIAL_PASSWORD: ${TAWASSOL_ADMIN_INITIAL_PASSWORD:-}
+      TAWASSOL_DEMO_PASSWORD: ${TAWASSOL_DEMO_PASSWORD:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      OPENAPI_ENABLED: ${OPENAPI_ENABLED:-false}
+      STORAGE_PATH: /data/files
+      TZ: Africa/Casablanca
+    volumes:
+      - files_data:/data/files
+    ports:
+      - "8080:8080"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_URL: http://api:8080
+      # true derrière HTTPS (production). En essai local en HTTP, mettre false dans .env.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "3000:3000"
+
+volumes:
+  mysql_data:
+  redis_data:
+  minio_data:
+  files_data:

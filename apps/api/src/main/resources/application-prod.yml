@@ -1,0 +1,9 @@
+# Production : OpenAPI désactivé par défaut, journalisation sobre.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+logging:
+  level:
+    root: INFO
