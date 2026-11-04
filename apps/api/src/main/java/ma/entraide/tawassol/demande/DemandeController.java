@@ -67,6 +67,12 @@ public class DemandeController {
         return soldes.get(u.personnelId(), annee == null ? LocalDate.now().getYear() : annee, null);
     }
 
+    @GetMapping("/me/soldes-conge")
+    public java.util.List<SoldeCongeService.Solde> soldesParAnnee(@AuthenticationPrincipal AuthenticatedUser u) {
+        if (u.personnelId() == null) throw new ma.entraide.tawassol.common.ApiException(HttpStatus.FORBIDDEN, "NO_PERSONNEL", "Ce compte n'est lié à aucun agent");
+        return soldes.parAnnee(u.personnelId());
+    }
+
     /** Aperçu d'un congé pendant la saisie : jours ouvrables décomptés, solde avant et après, chevauchement. N'enregistre rien. */
     @GetMapping("/me/conge-apercu")
     public Map<String, Object> congeApercu(@AuthenticationPrincipal AuthenticatedUser u, @RequestParam LocalDate debut, @RequestParam LocalDate fin) {

@@ -18,6 +18,11 @@ public class ParametreService {
                 String.class, cle, at).stream().findFirst();
     }
 
+    /** Valeur la plus ancienne d'un paramètre : sert aux dates antérieures à sa première date d'effet (historique). */
+    public Optional<String> premiere(String cle) {
+        return jdbc.queryForList("SELECT valeur FROM parametre WHERE cle = ? ORDER BY date_effet ASC LIMIT 1", String.class, cle).stream().findFirst();
+    }
+
     public BigDecimal decimal(String cle, LocalDate at, BigDecimal defaut) {
         return get(cle, at).map(BigDecimal::new).orElse(defaut);
     }

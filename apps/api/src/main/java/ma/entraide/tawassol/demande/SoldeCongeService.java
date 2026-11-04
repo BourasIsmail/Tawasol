@@ -37,10 +37,12 @@ public class SoldeCongeService {
         LocalDate debut = LocalDate.of(annee, 1, 1);
         List<String> cat = jdbc.queryForList("SELECT categorie_agent FROM personnel WHERE id = ? AND categorie_agent IS NOT NULL AND categorie_agent <> ''", String.class, personnelId);
         if (!cat.isEmpty()) {
-            var specifique = params.get("conge.annuel.droit_jours." + cat.get(0).trim().toUpperCase(), debut);
+            String cle = "conge.annuel.droit_jours." + cat.get(0).trim().toUpperCase();
+            var specifique = params.get(cle, debut).or(() -> params.premiere(cle));
             if (specifique.isPresent()) return new BigDecimal(specifique.get());
         }
-        return params.decimal("conge.annuel.droit_jours", debut, BigDecimal.ZERO);
+        // une année antérieure à la première date d'effet du paramètre prend la valeur la plus ancienne (H-CONGE-1) : jamais 0 par défaut de date
+        return params.get("conge.annuel.droit_jours", debut).or(() -> params.premiere("conge.annuel.droit_jours")).map(BigDecimal::new).orElse(BigDecimal.ZERO);
     }
 
     private record Ligne(BigDecimal droit, BigDecimal pris, BigDecimal reporte, String source, boolean aVerifier) {
@@ -84,6 +86,19 @@ public class SoldeCongeService {
         BigDecimal reserve = demandes.joursReserves(personnelId, excludeDemandeId == null ? "-" : excludeDemandeId, annee, LocalDate.now(clock));
         return new Solde(annee, droit, pris, reporte, reserve, droit.add(reporte).subtract(pris).subtract(reserve),
                 l == null ? "calcule" : l.source(), l != null && l.aVerifier());
+    }
+
+    /**
+     * Soldes année par année (plus récente d'abord) : années ayant une ligne de solde ou un congé annuel en cours ou approuvé, plus l'année courante.
+     */
+    public List<Solde> parAnnee(String personnelId) {
+        java.util.TreeSet<Integer> annees = new java.util.TreeSet<>(java.util.Comparator.reverseOrder());
+        annees.add(LocalDate.now(clock).getYear());
+        annees.addAll(jdbc.queryForList("SELECT annee FROM solde_conge WHERE personnel_id = ?", Integer.class, personnelId));
+        annees.addAll(jdbc.queryForList("""
+                SELECT DISTINCT YEAR(d.date_debut) FROM demande d JOIN type_demande t ON t.id = d.type_demande_id
+                 WHERE d.personnel_id = ? AND t.code = 'CONGE_ANNUEL' AND d.date_debut IS NOT NULL AND d.statut IN ('soumise','validee_responsable','approuvee')""", Integer.class, personnelId));
+        return annees.stream().map(a -> get(personnelId, a, null)).toList();
     }
 
     /** Un congé annuel approuvé décompte ses jours de l'année de sa date de début. */

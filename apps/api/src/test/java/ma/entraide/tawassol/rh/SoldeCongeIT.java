@@ -168,4 +168,21 @@ class SoldeCongeIT extends IntegrationTestBase {
         assertTrue(present);
         send(HttpMethod.DELETE, "/api/v1/rh/jours-feries/" + c.get("id").asText(), tRh, null).andExpect(status().isNoContent());
     }
+
+    @Test void soldesParAnneePourLAgentEtPourLaRh() throws Exception {
+        conge(agent, "approuvee", LocalDate.of(an - 1, 3, 2), LocalDate.of(an - 1, 3, 6), 5, true);
+        conge(agent, "approuvee", LocalDate.of(an, 2, 2), LocalDate.of(an, 2, 13), 10, true);
+        jdbc.update(LegacyMigrator.SQL_SOLDES_RECONSTITUES);
+        JsonNode mien = get("/api/v1/me/soldes-conge", tAgent);
+        assertEquals(an, mien.get(0).get("annee").asInt(), "année la plus récente d'abord");
+        assertEquals(an - 1, mien.get(1).get("annee").asInt());
+        assertEquals(10, mien.get(0).get("pris").asInt());
+        assertEquals(17, mien.get(1).get("disponible").asInt());   // 22 - 5
+        assertEquals("reconstitue", mien.get(0).get("source").asText());
+        assertTrue(mien.get(0).get("aVerifier").asBoolean());
+        JsonNode rh = get("/api/v1/rh/conges/soldes/" + agent, tRh);
+        assertEquals(mien.size(), rh.size());
+        send(HttpMethod.GET, "/api/v1/rh/conges/soldes/" + agent, tAgent, null).andExpect(status().isForbidden());
+        send(HttpMethod.GET, "/api/v1/rh/conges/soldes/inconnu", tRh, null).andExpect(status().isNotFound());
+    }
 }

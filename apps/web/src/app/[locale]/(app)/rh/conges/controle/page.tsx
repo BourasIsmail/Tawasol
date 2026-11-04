@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { Icon } from '@/components/Icon';
+import { SoldesParAnnee } from '@/components/SoldesParAnnee';
 import { CongesTabs } from '@/components/CongesTabs';
 import { Card, ErrorBox, Field, Loading, Page, WebOnly } from '@/components/ui';
 
@@ -74,6 +75,7 @@ export default function ControleSoldes() {
           {f && (
             <>
               <p><b>{nm(f)}</b> · <span className="mono">{f.matricule}</span> · {t('cg.source')} : <span className="pill">{t(`cg.src_${f.solde.source}`)}</span> {f.solde.aVerifier && <span className="pill warn">{t('cg.verify')}</span>} · {t('cg.available')} : <b>{f.solde.disponible}</b> ({t('cg.reserved')} {f.solde.reserve})</p>
+              <SoldesParAnnee path={`rh/conges/soldes/${f.id}`} />
               <div className="ff c2">
                 <Field label={t('cg.right')}><input type="number" min="0" max="365" step="0.5" value={form.droit} onChange={(e) => setForm({ ...form, droit: e.target.value })} /></Field>
                 <Field label={t('cg.carry')}><input type="number" min="0" max="365" step="0.5" value={form.reporte} onChange={(e) => setForm({ ...form, reporte: e.target.value })} /></Field>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { cap, fmtDate, fmtLongDate, fmtMonthShort } from '@/lib/format';
+import { SoldesParAnnee } from '@/components/SoldesParAnnee';
 import { Card, Empty, ErrorBox, Loading, Page, Pill, Row } from '@/components/ui';
 import { Icon } from '@/components/Icon';
 import { useMe } from '@/components/AppShell';
@@ -51,6 +52,7 @@ export default function Dashboard() {
           {ann.data?.length ? ann.data.slice(0, 4).map((a) => <Row key={a.id} main={a.titre} sub={fmtDate(locale, a.publieLe)} />) : <Empty title={t('docs.empty')} />}
         </Card>
       </div>
+      <SoldesParAnnee path="me/soldes-conge" title={t('cg.mineTitle')} />
     </Page>
   );
 }

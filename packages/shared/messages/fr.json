@@ -1127,6 +1127,10 @@
     "addHoliday": "Ajouter un jour férié",
     "add": "Ajouter",
     "alert": "{n} congés à régulariser",
-    "alertHint": "Périodes passées encore « soumises » : la RH tranche."
+    "alertHint": "Périodes passées encore « soumises » : la RH tranche.",
+    "mineTitle": "Mes congés par année",
+    "byYearTitle": "Congés par année",
+    "reserved2": "Réservé",
+    "byYearNote": "Reste = droit + report − pris − réservé. Le droit et le report suivent des règles à valider par la RH. « Réservé » : demandes en cours dont la période n'est pas passée. « Reconstitué » : jours pris recalculés à partir des congés approuvés, en cours de vérification par la RH."
   }
 }

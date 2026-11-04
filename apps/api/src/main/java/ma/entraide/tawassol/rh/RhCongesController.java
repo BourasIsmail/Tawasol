@@ -158,6 +158,13 @@ public class RhCongesController {
         return out;
     }
 
+    /** Soldes d'un agent, année par année (fiche RH de l'agent). */
+    @GetMapping("/conges/soldes/{personnelId}")
+    public List<SoldeCongeService.Solde> soldesParAnnee(@PathVariable String personnelId) {
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM personnel WHERE id = ?", Integer.class, personnelId) == 0) throw ApiException.notFound();
+        return soldes.parAnnee(personnelId);
+    }
+
     @PutMapping("/conges/soldes/{personnelId}/{annee}")
     @Transactional
     public Map<String, Object> corriger(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String personnelId, @PathVariable int annee, @RequestBody SoldeSaisie s) {
