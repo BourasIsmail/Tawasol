@@ -40,9 +40,9 @@ dump() { # fichier tables...
 
 # Les migrations sèment déjà ces référentiels avec des identifiants différents : on les vide puis on recharge ceux de la source,
 # sinon les demandes et missions pointeraient vers des identifiants inexistants.
-REF="flyway_schema_history role permission role_permission parametre bareme_indemnite bareme_repas jour_ferie type_demande type_document moyen_transport puissance_fiscale"
+REF="role permission role_permission parametre bareme_indemnite bareme_repas jour_ferie type_demande type_document moyen_transport puissance_fiscale"
 { echo "SET NAMES utf8mb4; SET FOREIGN_KEY_CHECKS=0;"
-  for t in role_permission role permission parametre bareme_indemnite bareme_repas jour_ferie type_demande type_document moyen_transport puissance_fiscale flyway_schema_history; do echo "DELETE FROM $t;"; done
+  for t in role_permission role permission parametre bareme_indemnite bareme_repas jour_ferie type_demande type_document moyen_transport puissance_fiscale; do echo "DELETE FROM $t;"; done
   "$DUMP" "${args[@]}" "$SRC" $REF
   echo "SET FOREIGN_KEY_CHECKS=1;"; } > "$OUT/01_reference.sql"
 dump 02_organisation.sql coordination_region delegation_province delegation_compteur structure grade responsabilite programme_mission programme_mission_plafond signataire_autorisation compteur_numero campagne_notation
@@ -84,3 +84,8 @@ echo "Terminé. Démarrez l'API : elle recrée le compte admin."
 EOS
 chmod +x "$OUT/charger.sh"
 ls -la "$OUT"
+
+# Fichier unique « INSERT seulement » : à charger APRÈS le premier démarrage de l'API (Flyway crée alors le schéma et sème les référentiels).
+{ echo "-- TAWASSOL : données seules (INSERT). A charger après le premier démarrage de l'API, dans la base créée par Flyway."
+  echo "-- Contient des données personnelles : ne pas commiter. Mot de passe initial des comptes agents : password"
+  cat "$OUT"/0[1-8]_*.sql; } > "$OUT/tawassol_data.sql"
