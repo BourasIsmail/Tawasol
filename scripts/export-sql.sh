@@ -12,6 +12,7 @@
 #   05_missions.sql      ordres de mission et historiques
 #   06_paie_notes.sql    lots d'import, salaires, crédits, primes, notes annuelles, examens
 #   07_divers.sql        annonces, documents, notifications, archive Suivi RH
+#   09_soldes_conge.sql  soldes de congé reconstitués (rejouable, « à vérifier »)
 #   08_comptes_agents.sql  un compte par agent (identifiant = matricule, mot de passe initial « password », changement imposé)
 #   charger.sh           charge tout dans une base VIDE
 #
@@ -71,6 +72,25 @@ FROM personnel p
 WHERE NOT EXISTS (SELECT 1 FROM utilisateur u WHERE u.personnel_id = p.id OR u.login = p.matricule);
 EOSQL
 
+# 09 : soldes de congé reconstitués. Rejouable : la valeur « pris » est recalculée (jamais additionnée) et une ligne saisie ou officielle n'est jamais écrasée.
+# Même requête que LegacyMigrator.SQL_SOLDES_RECONSTITUES. Le droit annuel et le report suivent les paramètres (à valider), pas la valeur stockée.
+cat > "$OUT/09_soldes_conge.sql" <<'EOSQL'
+SET NAMES utf8mb4;
+INSERT IGNORE INTO parametre (cle, valeur, date_effet, reference_texte, statut_validation) VALUES
+('conge.report.annees_max','0','2026-01-01','Report désactivé par défaut : règle à fournir par la RH et le juridique','non_valide'),
+('conge.report.plafond_jours','0','2026-01-01','Plafond du report : règle à fournir par la RH et le juridique','non_valide');
+UPDATE parametre SET reference_texte = 'Valeur d''exemple (~22 jours ouvrables) : à valider par la RH et le juridique, y compris pour les non titulaires'
+ WHERE cle = 'conge.annuel.droit_jours' AND reference_texte IS NULL;
+INSERT INTO solde_conge (id, personnel_id, annee, droit, pris, reporte, source, a_verifier)
+SELECT UUID(), d.personnel_id, YEAR(d.date_debut), 0, SUM(d.nb_jours), 0, 'reconstitue', 1
+  FROM demande d JOIN type_demande t ON t.id = d.type_demande_id
+ WHERE t.code = 'CONGE_ANNUEL' AND d.statut = 'approuvee' AND d.date_debut IS NOT NULL AND d.nb_jours IS NOT NULL
+ GROUP BY d.personnel_id, YEAR(d.date_debut)
+ON DUPLICATE KEY UPDATE pris = IF(source IN ('reconstitue','systeme'), VALUES(pris), pris),
+                        a_verifier = IF(source IN ('reconstitue','systeme'), 1, a_verifier),
+                        source = IF(source = 'systeme', 'reconstitue', source);
+EOSQL
+
 cat > "$OUT/charger.sh" <<'EOS'
 #!/usr/bin/env bash
 # Charge les scripts dans une base VIDE :  MYSQL_PWD='...' ./charger.sh HOTE BASE UTILISATEUR
@@ -88,4 +108,4 @@ ls -la "$OUT"
 # Fichier unique « INSERT seulement » : à charger APRÈS le premier démarrage de l'API (Flyway crée alors le schéma et sème les référentiels).
 { echo "-- TAWASSOL : données seules (INSERT). A charger après le premier démarrage de l'API, dans la base créée par Flyway."
   echo "-- Contient des données personnelles : ne pas commiter. Mot de passe initial des comptes agents : password"
-  cat "$OUT"/0[1-8]_*.sql; } > "$OUT/tawassol_data.sql"
+  cat "$OUT"/0[1-9]_*.sql; } > "$OUT/tawassol_data.sql"

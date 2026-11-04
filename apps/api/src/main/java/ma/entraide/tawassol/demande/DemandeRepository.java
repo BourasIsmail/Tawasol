@@ -120,12 +120,13 @@ public class DemandeRepository {
         return n != null && n > 0;
     }
 
-    public BigDecimal joursReserves(String personnelId, String excludeId, int annee) {
+    /** Jours réservés par les demandes en cours. Une période déjà passée ne réserve rien : ces demandes sont à régulariser par la RH. */
+    public BigDecimal joursReserves(String personnelId, String excludeId, int annee, java.time.LocalDate aujourdhui) {
         BigDecimal v = jdbc.queryForObject("""
             SELECT COALESCE(SUM(d.nb_jours), 0) FROM demande d JOIN type_demande t ON t.id = d.type_demande_id
              WHERE d.personnel_id = :p AND d.id <> :x AND t.code = 'CONGE_ANNUEL' AND d.statut IN ('soumise','validee_responsable')
-               AND YEAR(d.date_debut) = :a
-            """, new MapSqlParameterSource().addValue("p", personnelId).addValue("x", excludeId).addValue("a", annee), BigDecimal.class);
+               AND YEAR(d.date_debut) = :a AND (d.date_fin IS NULL OR d.date_fin >= :today)
+            """, new MapSqlParameterSource().addValue("p", personnelId).addValue("x", excludeId).addValue("a", annee).addValue("today", aujourdhui), BigDecimal.class);
         return v == null ? BigDecimal.ZERO : v;
     }
 }

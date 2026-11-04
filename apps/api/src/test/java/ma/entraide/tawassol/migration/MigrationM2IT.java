@@ -217,7 +217,7 @@ class MigrationM2IT extends IntegrationTestBase {
         @SuppressWarnings("unchecked") Map<String, Map<String, Object>> rec = (Map<String, Map<String, Object>>) ((Map<String, Object>) r.rapport().get("tables")).get("reconciliation");
         for (String k : List.of("somme_repas", "somme_transport", "somme_km")) assertEquals(0, ((java.math.BigDecimal) rec.get(k).get("ecart")).signum(), k);
         @SuppressWarnings("unchecked") Map<String, Long> codes = (Map<String, Long>) r.rapport().get("anomalies_par_code");
-        for (String c : List.of("NUMERO_ABSENT", "RETOUR_NON_RENSEIGNE", "ETAT_EN_DOUBLE", "DATE_CONGE_INVALIDE", "SOLDES_A_INITIALISER")) assertTrue(codes.containsKey(c), c + " dans " + codes);
+        for (String c : List.of("NUMERO_ABSENT", "RETOUR_NON_RENSEIGNE", "ETAT_EN_DOUBLE", "DATE_CONGE_INVALIDE", "SOLDES_A_VERIFIER")) assertTrue(codes.containsKey(c), c + " dans " + codes);
         // rejouer ne duplique rien
         var r2 = service.executer(jdbc, true, "VALIDATION-TEST-M4");
         assertEquals(0, t(r2, "deplacement_propres").get("crees")); assertEquals(4, t(r2, "deplacement_propres").get("deja_presents"));

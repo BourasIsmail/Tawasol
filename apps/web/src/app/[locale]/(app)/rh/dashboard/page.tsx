@@ -14,6 +14,7 @@ export default function RhDashboard() {
   const locale = useLocale();
   const q = useQuery({ queryKey: ['rhdash'], queryFn: () => api<D>('rh/tableau-de-bord') });
   const adv = useQuery({ queryKey: ['rh-adv-count'], queryFn: () => api<{ propositions: unknown[] }>('rh/avancement/propositions') });
+  const reg = useQuery({ queryKey: ['cg-reg-count'], queryFn: () => api<{ total: number }>('rh/conges/a-regulariser?size=1') });
   const camps = useQuery({ queryKey: ['rhcamps'], queryFn: () => api<{ annee: number }[]>('rh/notation/campagnes') });
   const annee = camps.data?.[0]?.annee;
   const taux = useQuery({ queryKey: ['rhtaux', annee], queryFn: () => api<{ structureId: string; nomFr: string; nomAr: string; agents: number; notes: number }[]>(`rh/notation/${annee}/taux`), enabled: !!annee });
@@ -40,6 +41,7 @@ export default function RhDashboard() {
         <Card title={t('rhdash.alerts')} flush>
           {adv.data && adv.data.propositions.length > 0 && <div className="rw"><div className="rm"><b>{t('rhdash.eligible', { n: adv.data.propositions.length })}</b><small>{t('rhdash.eligibleHint')}</small></div><div className="rr"><a className="btn sm" href={`/${locale}/rh/avancement`}>{t('rq.see')}</a></div></div>}
           <div className="rw"><div className="rm"><b>{t('rhdash.incompleteCount', { n: d.dossiersIncomplets })}</b></div><div className="rr"><a className="btn sm" href={`/${locale}/rh/personnel`}>{t('rq.see')}</a></div></div>
+          {reg.data && reg.data.total > 0 && <div className="rw"><div className="rm"><b>{t('cg.alert', { n: reg.data.total })}</b><small>{t('cg.alertHint')}</small></div><div className="rr"><a className="btn sm" href={`/${locale}/rh/conges`}>{t('rq.see')}</a></div></div>}
           <a className="rw link" href={`/${locale}/rh/demandes`}><div className="rm"><b>{t('rhdash.toProcess')}</b></div><div className="rr"><b>{d.aTraiter}</b></div></a>
           <a className="rw link" href={`/${locale}/rh/lots`}><div className="rm"><b>{t('rhdash.draftLots')}</b></div><div className="rr"><b>{d.lotsEnBrouillon}</b></div></a>
           <a className="rw link" href={`/${locale}/rh/notation`}><div className="rm"><b>{t('rhdash.notesToCheck')}</b></div><div className="rr"><b>{d.notesASoumettre}</b></div></a>

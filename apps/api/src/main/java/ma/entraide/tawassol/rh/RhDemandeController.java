@@ -119,10 +119,7 @@ public class RhDemandeController {
         jdbc.update("UPDATE demande SET statut = :s, traite_par = :u, date_traitement = :t, commentaire_rh = :c WHERE id = :id", new MapSqlParameterSource("s", cible).addValue("u", u.userId()).addValue("t", now).addValue("c", commentaire).addValue("id", id));
         demandes.addHistorique(id, u.userId(), d.statut(), cible, commentaire, now);
         if (approuver && "CONGE_ANNUEL".equals(d.typeCode()) && d.nbJours() != null && d.dateDebut() != null) {
-            int annee = d.dateDebut().getYear();
-            BigDecimal droit = params.decimal("conge.annuel.droit_jours", LocalDate.of(annee, 1, 1), BigDecimal.ZERO);
-            jdbc.update("INSERT INTO solde_conge (id, personnel_id, annee, droit, pris, reporte) VALUES (:id, :p, :a, :dr, :j, 0) ON DUPLICATE KEY UPDATE pris = pris + VALUES(pris)",
-                    new MapSqlParameterSource("id", java.util.UUID.randomUUID().toString()).addValue("p", d.personnelId()).addValue("a", annee).addValue("dr", droit).addValue("j", d.nbJours()));
+            soldes.deduire(d.personnelId(), d.dateDebut().getYear(), d.nbJours());
         }
         audit.record(u.userId(), approuver ? "DEMANDE_APPROUVEE" : "DEMANDE_REJETEE_RH", "demande", id, null, null);
         notifs.notifierAgent(d.personnelId(), approuver ? "DEMANDE_APPROUVEE" : "DEMANDE_REJETEE", approuver ? "Votre demande est approuvée" : "Votre demande est rejetée",

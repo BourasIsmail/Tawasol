@@ -6,7 +6,7 @@ Aucune règle n'est inventée : chacune est rattachée à un texte à confirmer 
 |---|---|---|---|---|---|
 | 1 | Statut général de la fonction publique (dahir n° 1-58-008 du 24/02/1958) | Positions administratives, avancement, notation, discipline | Carrière, Notation | Non validé | Le statut général s'applique-t-il tel quel au personnel de l'Entraide Nationale ? |
 | 2 | Statut particulier / règlement du personnel de l'Entraide Nationale | Toutes règles propres à l'établissement | Tous modules | Non validé | Pouvez-vous fournir le texte en vigueur ? |
-| 3 | Congé annuel : droit, report, décompte en jours ouvrables | Solde, durée, jours fériés | Demandes, Congés | Non validé | Quel droit annuel et quel mode de décompte (ouvrables/ouvrés) ? |
+| 3 | Congé annuel : droit, report, décompte en jours ouvrables | Solde, durée, jours fériés | Demandes, Congés | Non validé | Confirmer 22 jours ouvrables et sa source, les droits par catégorie (non titulaires), la règle du samedi, les jours fériés (dates variables), la règle de report. Voir H-CONGE-1 à 6. |
 | 4 | Congés spéciaux (maternité, paternité, décès, mariage, pèlerinage, maladie courte/longue durée) | Durées, justificatifs, effets sur rémunération et avancement | Demandes, Congés | Non validé | Quelles durées et justificatifs ? Effets sur l'avancement ? |
 | 5 | Avancement d'échelon : durée et rythme selon la notation | Éligibilité automatique | Carrière | Non validé | Quelle durée par échelon et par grade ? |
 | 6 | Avancement de grade : examen d'aptitude, concours professionnel, choix, quotas | Examens, nb_postes | Carrière, Examens | Non validé | Quelles voies et quels quotas ? |

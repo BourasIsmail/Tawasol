@@ -631,10 +631,24 @@ public class LegacyMigrator {
             if ("approuvee".equals(statut) && "CONGE_ANNUEL".equals(typeCode) && debut != null && r.get("deleted_at") == null)
                 prisParAgent.computeIfAbsent(pers, k -> new TreeMap<>()).merge(debut.toLocalDate().getYear(), jours, BigDecimal::add);
         }
-        // les droits annuels ne sont pas dans Suivi RH : pas de solde inventé, la RH reçoit les jours déjà pris
+        // Les droits annuels ne sont pas dans Suivi RH : le droit suit le paramètre (à valider). Les jours pris sont reconstitués à partir des
+        // congés annuels approuvés (rejouable : la valeur est recalculée, jamais ajoutée) et marqués « à vérifier » ; une ligne saisie ou officielle n'est jamais écrasée.
+        dst.update(SQL_SOLDES_RECONSTITUES);
         long agents = prisParAgent.size();
-        anomalie("SOLDES_A_INITIALISER", "conges", "*", agents + " agents ont des congés annuels approuvés : les droits et reports de chaque année sont à saisir par la RH");
+        anomalie("SOLDES_A_VERIFIER", "conges", "*", agents + " agents ont des jours de congé annuel reconstitués à partir des demandes approuvées : à vérifier par la RH (solde officiel de bascule à charger si disponible)");
     }
+
+    /** Écriture rejouable des soldes reconstitués : pris = somme des congés annuels approuvés de l'année ; droit et report restent aux paramètres. */
+    public static final String SQL_SOLDES_RECONSTITUES = """
+            INSERT INTO solde_conge (id, personnel_id, annee, droit, pris, reporte, source, a_verifier)
+            SELECT UUID(), d.personnel_id, YEAR(d.date_debut), 0, SUM(d.nb_jours), 0, 'reconstitue', 1
+              FROM demande d JOIN type_demande t ON t.id = d.type_demande_id
+             WHERE t.code = 'CONGE_ANNUEL' AND d.statut = 'approuvee' AND d.date_debut IS NOT NULL AND d.nb_jours IS NOT NULL
+             GROUP BY d.personnel_id, YEAR(d.date_debut)
+            ON DUPLICATE KEY UPDATE pris = IF(source IN ('reconstitue','systeme'), VALUES(pris), pris),
+                                    a_verifier = IF(source IN ('reconstitue','systeme'), 1, a_verifier),
+                                    source = IF(source = 'systeme', 'reconstitue', source)
+            """;
 
     private Date dateValide(Object o) {
         if (o == null) return null;

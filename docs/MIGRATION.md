@@ -130,7 +130,7 @@ Résultat sur la sauvegarde du 27/06/2024 (essais sur une base cible jetable, ja
 - Anomalies signalées sans rien inventer : 36 sans numéro d'origine, 9 numéros d'état en double (17 missions), 129 sans date de retour, 13 départ égal à arrivée, 1 congé à date invalide. Aucun écart de moteur inattendu : les 51 missions dont les repas diffèrent du moteur actuel (44 non supprimées et 7 supprimées) ont toutes été créées du 03 au 12/06/2024 et portent « montant historique non reproductible ».
 - Compteurs : 121 compteurs par délégation, année et type, au maximum de l'ancien système (lignes supprimées comprises).
 - Rejouer ne crée aucune ligne (deuxième passage : 0 création).
-- Les droits annuels de congé n'existent pas dans Suivi RH : aucun solde n'est inventé, la RH les saisit (anomalie `SOLDES_A_INITIALISER`).
+- Les droits annuels de congé n'existent pas dans Suivi RH : le droit suit le paramètre (à valider, H-CONGE-1). Les jours pris sont reconstitués à partir des congés annuels approuvés, de façon rejouable, et marqués « à vérifier » (anomalie `SOLDES_A_VERIFIER`). Les demandes « soumises » à période passée sont à régulariser par la RH (H-CONGE-4).
 
 **Reste à faire avant la bascule (M5), hors de ce dépôt** : répétition complète sur une copie de la base de production avec le rapport de réconciliation signé, recette par profil, gel de la saisie, migration finale puis delta, conservation de Suivi RH en lecture seule, plan de retour arrière. **Aucune migration sur une base réelle sans validation écrite** : le mode réel refuse de démarrer sans référence de validation.
 

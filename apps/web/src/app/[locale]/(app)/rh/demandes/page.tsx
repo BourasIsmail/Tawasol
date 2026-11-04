@@ -34,7 +34,7 @@ export default function RhDemandes() {
   const circuit = (c: string) => (c === 'responsable' ? <span className="pill ok"><Icon name="check" />{t('status.validee_responsable')}</span> : <span className="pill">{t('rhreq.direct')}</span>);
   const det = d.data;
   return (
-    <Page title={t('rhreq.title')}>
+    <Page title={t('rhreq.title')} actions={<a className="btn" href={`/${locale}/rh/conges`}><Icon name="cal" />{t('cg.title')}</a>}>
       <div className="tabs" role="tablist">{TABS.map(([k, m]) => <button key={k} type="button" role="tab" aria-pressed={tab === k} onClick={() => { setTab(k); setSel(null); }}>{t(`rhreq.${m}`)}</button>)}</div>
       {q.isLoading && <Loading />}
       {q.error && <ErrorBox error={q.error} onRetry={() => q.refetch()} />}

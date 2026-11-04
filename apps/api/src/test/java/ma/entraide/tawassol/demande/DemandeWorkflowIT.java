@@ -1,5 +1,6 @@
 package ma.entraide.tawassol.demande;
 
+import java.time.LocalDate;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.math.BigDecimal;
 import java.util.Map;
@@ -64,9 +65,13 @@ class DemandeWorkflowIT extends IntegrationTestBase {
     }
 
     @Test void soldeTientCompteDesDemandesDejaSoumises() throws Exception {
-        jdbc.update("INSERT INTO solde_conge (personnel_id, annee, droit, pris, reporte) VALUES (?, 2026, 6.0, 0, 0)", pa);
-        submit(ta, leave(ta, "2026-09-07", "2026-09-10"));
-        send(HttpMethod.POST, "/api/v1/demandes/" + leave(ta, "2026-10-05", "2026-10-07") + "/soumettre", ta, null)
+        // dates relatives à aujourd'hui : une période passée ne réserve plus de jours (H-CONGE-4)
+        LocalDate lundi = LocalDate.now().plusDays(40);
+        lundi = lundi.plusDays((8 - lundi.getDayOfWeek().getValue()) % 7);
+        if (lundi.plusDays(9).getYear() != lundi.getYear()) lundi = LocalDate.of(lundi.getYear() + 1, 1, 1).plusDays((8 - LocalDate.of(lundi.getYear() + 1, 1, 1).getDayOfWeek().getValue()) % 7 + 7);
+        jdbc.update("INSERT INTO solde_conge (personnel_id, annee, droit, pris, reporte) VALUES (?, ?, 5.0, 0, 0)", pa, lundi.getYear());
+        submit(ta, leave(ta, lundi.toString(), lundi.plusDays(3).toString()));
+        send(HttpMethod.POST, "/api/v1/demandes/" + leave(ta, lundi.plusDays(7).toString(), lundi.plusDays(9).toString()) + "/soumettre", ta, null)
                 .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("INSUFFICIENT_BALANCE"));
     }
 

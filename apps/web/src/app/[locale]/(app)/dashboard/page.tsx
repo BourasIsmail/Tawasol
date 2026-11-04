@@ -9,7 +9,7 @@ import { Card, Empty, ErrorBox, Loading, Page, Pill, Row } from '@/components/ui
 import { Icon } from '@/components/Icon';
 import { useMe } from '@/components/AppShell';
 
-interface Dash { soldeConges: { annee: number; disponible: number }; demandesEnCours: number; dernierBulletin?: { annee: number; mois: number }; derniereNote?: { annee: number; note: number }; ficheConfirmeeLe?: string }
+interface Dash { soldeConges: { annee: number; disponible: number; aVerifier?: boolean }; demandesEnCours: number; dernierBulletin?: { annee: number; mois: number }; derniereNote?: { annee: number; note: number }; ficheConfirmeeLe?: string }
 interface Demande { id: string; numero?: string; typeCode: string; statut: string; dateDebut?: string; dateFin?: string }
 interface Annonce { id: string; titre: string; publieLe: string }
 
@@ -32,7 +32,7 @@ export default function Dashboard() {
         <div className="ban warn"><Icon name="alert" /><div><b>{t('dash.verifyTitle')}</b><small>{t('dash.verifyText')}</small></div><Link className="btn pri" href={`/${locale}/fiche`}>{t('dash.verify')}</Link></div>
       )}
       <div className="g4">
-        <div className="stat"><span>{t('dash.balance')}</span><b>{t('common.days', { n: d.soldeConges.disponible })}</b><small>{t('dash.balanceHint2', { year: d.soldeConges.annee })}</small></div>
+        <div className="stat"><span>{t('dash.balance')}</span><b>{t('common.days', { n: d.soldeConges.disponible })}</b><small>{t('dash.balanceHint2', { year: d.soldeConges.annee })}{d.soldeConges.aVerifier ? ` · ${t('dash.balanceVerify')}` : ''}</small></div>
         <div className="stat"><span>{t('dash.pending')}</span><b>{d.demandesEnCours}</b></div>
         <div className="stat"><span>{t('dash.lastPayslip')}</span><b>{d.dernierBulletin ? fmtMonthShort(locale, d.dernierBulletin.annee, d.dernierBulletin.mois) : '—'}</b>{d.dernierBulletin && <small>{t('dash.lastPayslipHint')}</small>}</div>
         <div className="stat"><span>{d.derniereNote ? t('dash.noteYear', { year: d.derniereNote.annee }) : t('dash.lastNote')}</span><b>{d.derniereNote ? `${String(d.derniereNote.note).replace('.', ',')}/20` : '—'}</b>{d.derniereNote && <small>{t('note.published')}</small>}</div>
