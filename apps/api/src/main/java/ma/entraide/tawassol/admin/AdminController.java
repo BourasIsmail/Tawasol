@@ -33,10 +33,11 @@ public class AdminController {
     private final AuditService audit;
     private final ma.entraide.tawassol.auth.PasswordResetService reset;
     private final ma.entraide.tawassol.hierarchy.HierarchyIndex hierarchy;
+    private final ComptesService comptes;
 
     public AdminController(JdbcTemplate jdbc, NamedParameterJdbcTemplate named, PermissionService permissions, AuditService audit,
-                           ma.entraide.tawassol.auth.PasswordResetService reset, ma.entraide.tawassol.hierarchy.HierarchyIndex hierarchy) {
-        this.jdbc = jdbc; this.named = named; this.permissions = permissions; this.audit = audit; this.reset = reset; this.hierarchy = hierarchy;
+                           ma.entraide.tawassol.auth.PasswordResetService reset, ma.entraide.tawassol.hierarchy.HierarchyIndex hierarchy, ComptesService comptes) {
+        this.comptes = comptes; this.jdbc = jdbc; this.named = named; this.permissions = permissions; this.audit = audit; this.reset = reset; this.hierarchy = hierarchy;
     }
 
     @GetMapping("/roles")
@@ -63,6 +64,19 @@ public class AdminController {
         p.addValue("lim", size).addValue("off", (long) page * size);
         List<Map<String, Object>> rows = named.queryForList("SELECT ut.id, ut.login, ut.role AS profil, ut.role_id AS roleId, r.code AS roleCode, ut.est_actif AS estActif, ut.est_compte_legacy AS legacy, ut.doit_changer_mdp AS doitChangerMdp, ut.derniere_cnx AS derniereCnx, pe.matricule, pe.nom_fr AS nomFr, pe.prenom_fr AS prenomFr" + from + " ORDER BY ut.login LIMIT :lim OFFSET :off", p);
         return new PageResult<>(rows, total, page, size);
+    }
+
+    @GetMapping("/utilisateurs/candidats")
+    public List<Map<String, Object>> candidats(@AuthenticationPrincipal AuthenticatedUser u, @RequestParam(required = false) String q) {
+        permissions.exiger(u, "role.gerer");
+        return comptes.candidats(q);
+    }
+
+    @PostMapping("/utilisateurs")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ComptesService.Resultat creer(@AuthenticationPrincipal AuthenticatedUser u, @RequestBody ComptesService.Creation c) {
+        permissions.exiger(u, "role.gerer");
+        return comptes.creer(u, c, true);
     }
 
     @PutMapping("/utilisateurs/{id}")

@@ -12,6 +12,10 @@ Portail RH de l'Entraide Nationale (Maroc) : dossier agent, demandes administrat
 | `docs/` | `ARCHITECTURE.md`, `SECURITE.md`, `CONFORMITE.md`, `HYPOTHESES.md` |
 | `scripts/gen-demo.py` | Génère le jeu de démonstration (80 agents) |
 
+## Base de données externe (Docker)
+
+`docker compose up --build` ne démarre plus MySQL : l'API se connecte à la base indiquée dans `.env` (`DB_URL`, `DB_USER`, `DB_PASSWORD`, voir `.env.example`). Le mot de passe ne va jamais dans git. **Au premier démarrage, Flyway applique les migrations V1 à V18 sur cette base** : à ne faire que sur une base dont le propriétaire l'a validé par écrit. Pour une base locale de secours : `docker compose --profile localdb up` avec `DB_URL` visant `mysql:3306`.
+
 ## Démarrage rapide (Docker, moins de 10 minutes)
 
 ```bash

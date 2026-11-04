@@ -32,9 +32,25 @@ public class RhPersonnelController {
     private final PersonnelRhService service;
     private final JdbcTemplate jdbc;
     private final AuditService audit;
+    private final ma.entraide.tawassol.admin.ComptesService comptes;
 
-    public RhPersonnelController(PersonnelRhService service, JdbcTemplate jdbc, AuditService audit) {
-        this.service = service; this.jdbc = jdbc; this.audit = audit;
+    public RhPersonnelController(PersonnelRhService service, JdbcTemplate jdbc, AuditService audit, ma.entraide.tawassol.admin.ComptesService comptes) {
+        this.service = service; this.jdbc = jdbc; this.audit = audit; this.comptes = comptes;
+    }
+
+    /** Rôles que la RH peut attribuer : agent et responsable uniquement. */
+    @GetMapping("/comptes/roles")
+    public List<Map<String, Object>> rolesComptes() {
+        return jdbc.queryForList("SELECT id, code, libelle_fr AS libelleFr, libelle_ar AS libelleAr, profil FROM role WHERE est_actif = 1 AND profil IN ('agent','responsable') ORDER BY profil, code");
+    }
+
+    @GetMapping("/comptes/candidats")
+    public List<Map<String, Object>> candidatsComptes(@RequestParam(required = false) String q) { return comptes.candidats(q); }
+
+    @PostMapping("/comptes")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ma.entraide.tawassol.admin.ComptesService.Resultat creerCompte(@AuthenticationPrincipal AuthenticatedUser u, @RequestBody ma.entraide.tawassol.admin.ComptesService.Creation c) {
+        return comptes.creer(u, c, false);
     }
 
     @GetMapping("/personnel/{id}")

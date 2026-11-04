@@ -1036,5 +1036,24 @@
     "delay": "Délai moyen",
     "delayHint": "réponse du responsable",
     "see": "Voir"
+  },
+  "acc": {
+    "create": "Créer un compte",
+    "newTitle": "Nouveau compte",
+    "agent": "Agent (sans compte)",
+    "search": "Rechercher par nom ou matricule…",
+    "noCandidate": "Aucun agent sans compte ne correspond.",
+    "noEmail": "Sans e-mail",
+    "role": "Rôle",
+    "login": "Identifiant",
+    "loginHint": "Par défaut : le matricule",
+    "rule": "Le mot de passe est généré : il n'est jamais choisi par la personne qui crée le compte. Si l'agent a une adresse e-mail, il reçoit un lien pour choisir son mot de passe ; sinon le mot de passe initial s'affiche une seule fois. Il doit être changé à la première connexion.",
+    "created": "Compte créé",
+    "createdFor": "Compte {login} créé",
+    "linkSent": "Un lien pour choisir le mot de passe a été envoyé par e-mail.",
+    "showOnce": "Mot de passe initial, affiché une seule fois : transmettez-le à l'agent de façon sûre.",
+    "mustChange": "Le mot de passe devra être changé à la première connexion.",
+    "another": "Créer un autre compte",
+    "rhSub": "Comptes agent et responsable uniquement."
   }
 }

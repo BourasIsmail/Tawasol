@@ -23,6 +23,7 @@ export default function RhPersonnel() {
         <div className="acts" style={{ alignItems: 'center' }}>
         <input className="in" style={{ flex: '1 1 220px', maxWidth: 260, border: '1px solid var(--line)', borderRadius: 8, padding: '9px 11px', background: 'var(--surface)', color: 'inherit' }} placeholder={t('rhstaff.search')} aria-label={t('rhstaff.search')} value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} />
         <Link className="btn" href={`/${locale}/rh/imports`}><Icon name="up" />{t('rhstaff.importExcel')}</Link>
+        <Link className="btn" href={`/${locale}/rh/comptes`}><Icon name="user" />{t('acc.create')}</Link>
         <Link className="btn pri" href={`/${locale}/rh/personnel/nouveau`}><Icon name="plus" />{t('rhstaff.newAgent')}</Link>
         </div>
         {list.isLoading && <Loading />}

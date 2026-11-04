@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { Icon } from '@/components/Icon';
+import { CreateAccount } from '@/components/CreateAccount';
 import { Card, Empty, ErrorBox, Loading, Page } from '@/components/ui';
 
 interface Compte { id: string; login: string; profil: string; roleId?: string; estActif: boolean; legacy: boolean; doitChangerMdp: boolean; matricule?: string; nomFr?: string; prenomFr?: string }
@@ -17,6 +18,7 @@ export default function Comptes() {
   const [q, setQ] = useState('');
   const [filtre, setFiltre] = useState<'' | 'legacy' | 'actif' | 'inactif'>('');
   const [page, setPage] = useState(0);
+  const [creating, setCreating] = useState(false);
   const params = `q=${encodeURIComponent(q)}&page=${page}${filtre === 'legacy' ? '&legacy=true' : filtre === 'actif' ? '&actif=true' : filtre === 'inactif' ? '&actif=false' : ''}`;
   const comptes = useQuery({ queryKey: ['admin-comptes', params], queryFn: () => api<{ content: Compte[]; total: number; size: number }>(`admin/utilisateurs?${params}`) });
   const roles = useQuery({ queryKey: ['admin-roles'], queryFn: () => api<Role[]>('admin/roles') });
@@ -33,7 +35,8 @@ export default function Comptes() {
   const lib = (r: Role) => (locale === 'ar' ? r.libelleAr : r.libelleFr);
   const total = comptes.data?.total ?? 0, size = comptes.data?.size ?? 25;
   return (
-    <Page title={t('adm.accTitle')}>
+    <Page title={t('adm.accTitle')} actions={<button type="button" className="btn pri" onClick={() => setCreating(!creating)}><Icon name="plus" />{t('acc.create')}</button>}>
+      {creating && <CreateAccount scope="admin" />}
       <div className="chips" role="group">
         {(['', 'actif', 'inactif', 'legacy'] as const).map((f) => (
           <button key={f} type="button" className="chip" aria-pressed={filtre === f} onClick={() => { setFiltre(f); setPage(0); }}>{f === '' ? t('adm.all') : f === 'actif' ? t('adm.active') : f === 'inactif' ? t('adm.inactive') : t('adm.legacy')}</button>

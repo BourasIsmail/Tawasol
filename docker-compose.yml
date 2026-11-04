@@ -1,17 +1,20 @@
 # Pile complète : docker compose up --build
 # Copiez .env.example en .env et renseignez les secrets avant de démarrer.
+# La base de données est EXTERNE (DB_URL, DB_USER, DB_PASSWORD dans .env). Le service mysql ci-dessous n'est qu'un
+# secours local : il ne démarre que avec  docker compose --profile localdb up  (et alors DB_URL doit viser mysql:3306).
 name: tawassol
 
 services:
   mysql:
+    profiles: ["localdb"]
     image: mysql:8.4
     restart: unless-stopped
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci", "--default-time-zone=+01:00"]
     environment:
       MYSQL_DATABASE: tawassol
       MYSQL_USER: tawassol
-      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requis}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD requis}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-localdb}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-localdb-root}
       TZ: Africa/Casablanca
     volumes:
       - mysql_data:/var/lib/mysql
@@ -25,15 +28,13 @@ services:
   api:
     build: ./apps/api
     restart: unless-stopped
-    depends_on:
-      mysql: { condition: service_healthy }
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       # Les dates de la base sont des heures locales marocaines sans fuseau : l'API tourne en UTC pour les lire et les écrire telles quelles.
       # (Avec le fuseau Africa/Casablanca, une heure comprise dans le changement d'heure du ramadan, ex. 02:30, ne peut pas être lue.)
-      DB_URL: jdbc:mysql://mysql:3306/tawassol?useUnicode=true&characterEncoding=utf8
-      DB_USER: tawassol
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_URL: ${DB_URL:?DB_URL requis (base externe)}
+      DB_USER: ${DB_USER:?DB_USER requis}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD requis}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET requis (32 caractères minimum)}
       TAWASSOL_ADMIN_INITIAL_PASSWORD: ${TAWASSOL_ADMIN_INITIAL_PASSWORD:-}
       TAWASSOL_DEMO_PASSWORD: ${TAWASSOL_DEMO_PASSWORD:-}
