@@ -117,6 +117,8 @@ ls -la "$OUT"
 # interne de la demande : le fichier fonctionne même si la base cible a été chargée par une autre reprise.
 { echo "-- TAWASSOL : imputations des congés repris de Suivi RH + soldes reconstitués. A charger sur une base déjà chargée, APRÈS la migration V20. Rejouable."
   echo "SET NAMES utf8mb4;"
+  echo "-- GARDE-FOU : s'arrête ici (table inexistante) si la base sélectionnée n'est pas la base TAWASSOL à jour (migration V20 appliquée)."
+  echo "SELECT COUNT(*) AS garde_base_tawassol_v20 FROM conge_imputation;"
   echo "DROP TEMPORARY TABLE IF EXISTS tmp_imputation;"
   echo "CREATE TEMPORARY TABLE tmp_imputation (id_legacy BIGINT NOT NULL, annee SMALLINT NOT NULL, jours DECIMAL(5,1) NOT NULL, PRIMARY KEY (id_legacy, annee));"
   mysql -u"$U" ${P:+-p"$P"} -N "$SRC" -e "SELECT CONCAT('(', d.id_legacy, ',', ci.annee, ',', ci.jours, ')') FROM conge_imputation ci JOIN demande d ON d.id = ci.demande_id WHERE d.source_legacy = 'conge' AND d.id_legacy IS NOT NULL ORDER BY d.id_legacy, ci.annee" \
