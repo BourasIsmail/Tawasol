@@ -12,6 +12,7 @@
 #   05_missions.sql      ordres de mission et historiques
 #   06_paie_notes.sql    lots d'import, salaires, crédits, primes, notes annuelles, examens
 #   07_divers.sql        annonces, documents, notifications, archive Suivi RH
+#   08_comptes_agents.sql  un compte par agent (identifiant = matricule, mot de passe initial « password », changement imposé)
 #   charger.sh           charge tout dans une base VIDE
 #
 # Exclus : comptes admin et test.* (l'admin est recréé au démarrage de l'API), sessions, jetons, journal d'audit,
@@ -54,6 +55,21 @@ dump 06_paie_notes.sql import_modele import_lot salaire salaire_ligne credit pri
   "$DUMP" "${args[@]}" "$SRC" annonce document legacy_archive
   "$DUMP" "${args[@]}" --where="utilisateur_id NOT IN $EXCL" "$SRC" notification document_lecture
   echo "SET FOREIGN_KEY_CHECKS=1;"; } > "$OUT/07_divers.sql"
+
+# 08 : un compte par agent (identifiant = matricule), mot de passe initial identique « password » (hash Argon2id), changement imposé.
+# Compte actif seulement si l'agent l'est ; responsable si l'agent a un périmètre actif. Les profils RH/admin se créent ensuite dans l'application.
+HASH='$argon2id$v=19$m=16384,t=2,p=1$fi3twHZ7Imrye8rx4m3AbQ$Y8xLWnP1LhdMuhpL8Fz/c/9ItafzvrUhNzo97zytqlU'
+cat > "$OUT/08_comptes_agents.sql" <<EOSQL
+SET NAMES utf8mb4;
+-- Mot de passe initial de tous ces comptes : "password". Il doit être changé à la première connexion.
+INSERT INTO utilisateur (id, personnel_id, login, mot_de_passe, role, role_id, est_actif, doit_changer_mdp)
+SELECT UUID(), p.id, p.matricule, '$HASH',
+       CASE WHEN EXISTS (SELECT 1 FROM responsable_perimetre rp WHERE rp.personnel_id = p.id AND rp.est_actif = 1) THEN 'responsable' ELSE 'agent' END,
+       (SELECT r.id FROM role r WHERE r.code = CASE WHEN EXISTS (SELECT 1 FROM responsable_perimetre rp WHERE rp.personnel_id = p.id AND rp.est_actif = 1) THEN 'responsable_standard' ELSE 'agent_standard' END),
+       p.est_actif, 1
+FROM personnel p
+WHERE NOT EXISTS (SELECT 1 FROM utilisateur u WHERE u.personnel_id = p.id OR u.login = p.matricule);
+EOSQL
 
 cat > "$OUT/charger.sh" <<'EOS'
 #!/usr/bin/env bash
