@@ -112,11 +112,21 @@ ls -la "$OUT"
   echo "-- Contient des données personnelles : ne pas commiter. Mot de passe initial des comptes agents : password"
   cat "$OUT"/0[1-9]_*.sql; } > "$OUT/tawassol_data.sql"
 
-# Fichier delta pour une base DÉJÀ chargée (après le démarrage de la version qui applique la migration V20) :
-# écrit les imputations des congés repris de Suivi RH puis recalcule les soldes. Rejouable.
-{ echo "-- TAWASSOL : imputations des congés repris de Suivi RH + soldes reconstitués. A charger sur une base déjà chargée, après la migration V20. Rejouable."
-  echo "SET NAMES utf8mb4; SET FOREIGN_KEY_CHECKS=0;"
-  echo "DELETE FROM conge_imputation WHERE demande_id IN (SELECT id FROM demande WHERE source_legacy = 'conge');"
-  "$DUMP" "${args[@]}" "$SRC" conge_imputation
-  echo "SET FOREIGN_KEY_CHECKS=1;"
-  cat "$OUT/09_soldes_conge.sql"; } > "$OUT/maj_soldes_conge.sql"
+# Fichier delta pour une base DÉJÀ chargée (après le démarrage de la version qui applique la migration V20) : écrit les imputations des congés
+# repris de Suivi RH puis recalcule les soldes. Rejouable. Les imputations sont indexées par le numéro Suivi RH (id_legacy), pas par l'identifiant
+# interne de la demande : le fichier fonctionne même si la base cible a été chargée par une autre reprise.
+{ echo "-- TAWASSOL : imputations des congés repris de Suivi RH + soldes reconstitués. A charger sur une base déjà chargée, APRÈS la migration V20. Rejouable."
+  echo "SET NAMES utf8mb4;"
+  echo "DROP TEMPORARY TABLE IF EXISTS tmp_imputation;"
+  echo "CREATE TEMPORARY TABLE tmp_imputation (id_legacy BIGINT NOT NULL, annee SMALLINT NOT NULL, jours DECIMAL(5,1) NOT NULL, PRIMARY KEY (id_legacy, annee));"
+  mysql -u"$U" ${P:+-p"$P"} -N "$SRC" -e "SELECT CONCAT('(', d.id_legacy, ',', ci.annee, ',', ci.jours, ')') FROM conge_imputation ci JOIN demande d ON d.id = ci.demande_id WHERE d.source_legacy = 'conge' AND d.id_legacy IS NOT NULL ORDER BY d.id_legacy, ci.annee" \
+    | awk -v n=500 'NR % n == 1 { printf "%sINSERT INTO tmp_imputation (id_legacy, annee, jours) VALUES ", (NR > 1 ? ";\n" : "") } { printf "%s%s", (NR % n == 1 ? "" : ","), $0 } END { if (NR > 0) print ";" }'
+  echo "-- contrôle : numéros Suivi RH sans demande correspondante dans cette base (doit être 0)"
+  echo "SELECT COUNT(*) AS imputations_sans_demande FROM tmp_imputation t LEFT JOIN demande d ON d.source_legacy = 'conge' AND d.id_legacy = t.id_legacy WHERE d.id IS NULL;"
+  echo "-- nettoyage : imputations rattachées à une demande qui n'existe pas"
+  echo "DELETE FROM conge_imputation WHERE demande_id NOT IN (SELECT id FROM demande);"
+  echo "DELETE ci FROM conge_imputation ci JOIN demande d ON d.id = ci.demande_id WHERE d.source_legacy = 'conge';"
+  echo "INSERT INTO conge_imputation (demande_id, annee, jours) SELECT d.id, t.annee, t.jours FROM tmp_imputation t JOIN demande d ON d.source_legacy = 'conge' AND d.id_legacy = t.id_legacy;"
+  sed '1d' "$OUT/09_soldes_conge.sql"
+  echo "SELECT COUNT(*) AS imputations, SUM(jours) AS jours FROM conge_imputation;"
+  echo "DROP TEMPORARY TABLE IF EXISTS tmp_imputation;"; } > "$OUT/maj_soldes_conge.sql"
