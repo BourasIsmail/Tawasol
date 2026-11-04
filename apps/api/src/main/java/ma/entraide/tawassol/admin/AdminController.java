@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
     public record ModificationCompte(String roleId, Boolean estActif) {}
+    public record Identifiants(String login, String email) {}
     public record Designation(String personnelId, String type, String cibleId, java.time.LocalDate dateDebut) {}
 
     private final JdbcTemplate jdbc;
@@ -34,10 +35,11 @@ public class AdminController {
     private final ma.entraide.tawassol.auth.PasswordResetService reset;
     private final ma.entraide.tawassol.hierarchy.HierarchyIndex hierarchy;
     private final ComptesService comptes;
+    private final ma.entraide.tawassol.rh.PersonnelRhService personnelRh;
 
     public AdminController(JdbcTemplate jdbc, NamedParameterJdbcTemplate named, PermissionService permissions, AuditService audit,
-                           ma.entraide.tawassol.auth.PasswordResetService reset, ma.entraide.tawassol.hierarchy.HierarchyIndex hierarchy, ComptesService comptes) {
-        this.comptes = comptes; this.jdbc = jdbc; this.named = named; this.permissions = permissions; this.audit = audit; this.reset = reset; this.hierarchy = hierarchy;
+                           ma.entraide.tawassol.auth.PasswordResetService reset, ma.entraide.tawassol.hierarchy.HierarchyIndex hierarchy, ComptesService comptes, ma.entraide.tawassol.rh.PersonnelRhService personnelRh) {
+        this.personnelRh = personnelRh; this.comptes = comptes; this.jdbc = jdbc; this.named = named; this.permissions = permissions; this.audit = audit; this.reset = reset; this.hierarchy = hierarchy;
     }
 
     @GetMapping("/roles")
@@ -62,7 +64,7 @@ public class AdminController {
         String from = " FROM utilisateur ut LEFT JOIN personnel pe ON pe.id = ut.personnel_id LEFT JOIN role r ON r.id = ut.role_id" + w;
         long total = named.queryForObject("SELECT COUNT(*)" + from, p, Long.class);
         p.addValue("lim", size).addValue("off", (long) page * size);
-        List<Map<String, Object>> rows = named.queryForList("SELECT ut.id, ut.login, ut.role AS profil, ut.role_id AS roleId, r.code AS roleCode, ut.est_actif AS estActif, ut.est_compte_legacy AS legacy, ut.doit_changer_mdp AS doitChangerMdp, ut.derniere_cnx AS derniereCnx, pe.matricule, pe.nom_fr AS nomFr, pe.prenom_fr AS prenomFr" + from + " ORDER BY ut.login LIMIT :lim OFFSET :off", p);
+        List<Map<String, Object>> rows = named.queryForList("SELECT ut.id, ut.login, ut.role AS profil, ut.role_id AS roleId, r.code AS roleCode, ut.personnel_id AS personnelId, ut.est_actif AS estActif, ut.est_compte_legacy AS legacy, ut.doit_changer_mdp AS doitChangerMdp, ut.derniere_cnx AS derniereCnx, pe.matricule, pe.nom_fr AS nomFr, pe.prenom_fr AS prenomFr" + from + " ORDER BY ut.login LIMIT :lim OFFSET :off", p);
         return new PageResult<>(rows, total, page, size);
     }
 
@@ -100,6 +102,69 @@ public class AdminController {
         }
         audit.record(u.userId(), "ADMIN_COMPTE_MODIFIE", "utilisateur", id, avant, "{\"roleId\":\"" + (q.roleId() == null ? ut.get("role_id") : q.roleId()) + "\",\"estActif\":" + (q.estActif() == null ? b(ut.get("est_actif")) : q.estActif()) + "}");
         return Map.of("id", id);
+    }
+
+    /** Identifiant de connexion et e-mail du compte (l'e-mail est celui de la fiche de l'agent, utilisé pour la réinitialisation du mot de passe). */
+    @PutMapping("/utilisateurs/{id}/identifiants")
+    @Transactional
+    public Map<String, Object> identifiants(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String id, @RequestBody Identifiants q) {
+        permissions.exiger(u, "role.gerer");
+        List<Map<String, Object>> l = jdbc.queryForList("SELECT login, personnel_id FROM utilisateur WHERE id = ?", id);
+        if (l.isEmpty()) throw ApiException.notFound();
+        if (id.equals(u.userId())) throw new ApiException(HttpStatus.FORBIDDEN, "AUTO_MODIFICATION", "Vous ne pouvez pas modifier votre propre compte");
+        String ancien = (String) l.get(0).get("login"), pid = (String) l.get(0).get("personnel_id"), nouveau = ancien;
+        if (q.login() != null && !q.login().isBlank() && !q.login().trim().equals(ancien)) {
+            nouveau = q.login().trim();
+            if (!nouveau.matches("[A-Za-z0-9._-]{3,50}")) throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "LOGIN_INVALIDE", "Identifiant invalide (3 à 50 caractères : lettres, chiffres, . _ -)");
+            Integer pris = jdbc.queryForObject("SELECT COUNT(*) FROM utilisateur WHERE login = ? AND id <> ?", Integer.class, nouveau, id);
+            if (pris != null && pris > 0) throw new ApiException(HttpStatus.CONFLICT, "LOGIN_PRIS", "Cet identifiant existe déjà");
+            jdbc.update("UPDATE utilisateur SET login = ?, modifie_le = NOW() WHERE id = ?", nouveau, id);
+            jdbc.update("UPDATE refresh_token SET revoque = 1 WHERE utilisateur_id = ?", id);   // l'ancien identifiant ne doit plus ouvrir de session
+        }
+        boolean emailModifie = false;
+        if (q.email() != null) {
+            if (pid == null) throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "PAS_D_AGENT", "Ce compte n'est lié à aucun agent : pas d'adresse e-mail");
+            String e = q.email().trim();
+            if (!e.isEmpty() && !e.matches("[^@\\s]+@[^@\\s]+\\.[^@\\s]+")) throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "EMAIL_INVALIDE", "Adresse e-mail invalide");
+            jdbc.update("UPDATE personnel SET email = ? WHERE id = ?", e.isEmpty() ? null : e, pid);
+            emailModifie = true;
+        }
+        // le journal garde l'identifiant, jamais l'adresse e-mail (donnée sensible)
+        audit.record(u.userId(), "COMPTE_IDENTIFIANTS_MODIFIES", "utilisateur", id, "{\"login\":\"" + ancien + "\"}", "{\"login\":\"" + nouveau + "\",\"emailModifie\":" + emailModifie + "}");
+        return Map.of("id", id, "login", nouveau);
+    }
+
+    // ---- fiche de l'agent (identité et dossier RH ; jamais la paie) : même règles et même journal que pour la RH ----
+
+    @GetMapping("/personnel/{id}")
+    public Map<String, Object> fichePersonnel(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String id) {
+        permissions.exiger(u, "role.gerer");
+        return personnelRh.fiche(u, id);
+    }
+
+    @PutMapping("/personnel/{id}")
+    public Map<String, Object> modifierPersonnel(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String id, @RequestBody ma.entraide.tawassol.rh.RhPersonnelController.PersonnelRequest r) {
+        permissions.exiger(u, "role.gerer");
+        personnelRh.update(u, id, r.toInput());
+        return Map.of("id", id);
+    }
+
+    @GetMapping("/personnel/{id}/carriere")
+    public List<Map<String, Object>> carrierePersonnel(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String id) {
+        permissions.exiger(u, "role.gerer");
+        return personnelRh.carriere(id);
+    }
+
+    @GetMapping("/structures")
+    public List<Map<String, Object>> structuresListe(@AuthenticationPrincipal AuthenticatedUser u) {
+        permissions.exiger(u, "role.gerer");
+        return jdbc.queryForList("SELECT id, code, type, nom_fr AS nomFr, nom_ar AS nomAr, delegation_id AS delegationId, parent_id AS parentId, est_active AS actif FROM structure ORDER BY code");
+    }
+
+    @GetMapping("/grades")
+    public List<Map<String, Object>> gradesListe(@AuthenticationPrincipal AuthenticatedUser u) {
+        permissions.exiger(u, "role.gerer");
+        return jdbc.queryForList("SELECT id, code, libelle_fr AS libelleFr, libelle_ar AS libelleAr, echelle, nb_echelons AS nbEchelons FROM grade ORDER BY code");
     }
 
     @GetMapping("/audit")

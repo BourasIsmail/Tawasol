@@ -44,6 +44,18 @@ public class PersonnelRhService {
         this.jdbc = jdbc; this.audit = audit; this.json = json; this.clock = clock;
     }
 
+    /** Fiche complète d'un agent (identité et dossier RH ; ni paie ni primes). Chaque consultation est journalisée. */
+    public Map<String, Object> fiche(AuthenticatedUser actor, String id) {
+        Map<String, Object> m = jdbc.queryForList("""
+            SELECT p.id, p.matricule, p.nom_fr AS nomFr, p.prenom_fr AS prenomFr, p.nom_ar AS nomAr, p.prenom_ar AS prenomAr, p.grade_id AS gradeId, g.libelle_fr AS gradeFr, p.structure_id AS structureId,
+                   s.nom_fr AS structureFr, p.date_recrutement AS dateRecrutement, p.email, p.telephone, p.cin, p.sexe, p.situation_familiale AS situationFamiliale, p.date_naissance AS dateNaissance,
+                   p.position_administrative AS positionAdministrative, p.echelon, p.echelle, p.date_echelon AS dateEchelon, p.est_actif AS actif
+              FROM personnel p JOIN structure s ON s.id = p.structure_id LEFT JOIN grade g ON g.id = p.grade_id WHERE p.id = ?
+            """, id).stream().findFirst().orElseThrow(ma.entraide.tawassol.common.ApiException::notFound);
+        audit.record(actor.userId(), "PERSONNEL_READ", "personnel", id, null, null);
+        return m;
+    }
+
     public Optional<String> idByMatricule(String matricule) {
         return jdbc.queryForList("SELECT id FROM personnel WHERE matricule = ?", String.class, matricule).stream().findFirst();
     }

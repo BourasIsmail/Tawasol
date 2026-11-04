@@ -85,9 +85,9 @@ class ValidationIT extends IntegrationTestBase {
         String a = submitLeave(tA, "2026-11-16", "2026-11-17");
         send(HttpMethod.GET, "/api/v1/validation/demandes/" + a, tResp1, null).andExpect(status().isOk()).andExpect(jsonPath("$.agent.matricule").exists());
         send(HttpMethod.GET, "/api/v1/validation/demandes/" + a, tResp2, null).andExpect(status().isNotFound());
-        // le délégué fait partie de la chaîne : il voit la demande, mais ne peut pas la décider avant son tour
-        send(HttpMethod.GET, "/api/v1/validation/demandes/" + a, tRespDeleg, null).andExpect(status().isOk());
-        send(HttpMethod.POST, "/api/v1/validation/demandes/" + a + "/valider", tRespDeleg, null).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("NOT_YOUR_TURN"));
+        // circuit par défaut : seul le responsable direct valide ; le délégué, plus haut dans la hiérarchie, n'est pas dans la chaîne
+        send(HttpMethod.GET, "/api/v1/validation/demandes/" + a, tRespDeleg, null).andExpect(status().isNotFound());
+        send(HttpMethod.POST, "/api/v1/validation/demandes/" + a + "/valider", tRespDeleg, null).andExpect(status().isNotFound());
         send(HttpMethod.GET, "/api/v1/validation/demandes/" + a, tB, null).andExpect(status().isNotFound());
         send(HttpMethod.POST, "/api/v1/validation/demandes/" + a + "/valider", tResp2, null).andExpect(status().isNotFound());
         send(HttpMethod.POST, "/api/v1/validation/demandes/" + a + "/valider", tB, null).andExpect(status().isNotFound());
@@ -107,16 +107,15 @@ class ValidationIT extends IntegrationTestBase {
 
     @Test void validerPuisIdempotence() throws Exception {
         String a = submitLeave(tA, "2026-11-16", "2026-11-17");
-        // chaîne complète : S1 puis la délégation ; la demande n'est « validée » qu'après le dernier niveau
-        send(HttpMethod.POST, "/api/v1/validation/demandes/" + a + "/valider", tResp1, Map.of("commentaire", "Accord")).andExpect(status().isOk()).andExpect(jsonPath("$.statut").value("soumise"));
-        send(HttpMethod.POST, "/api/v1/validation/demandes/" + a + "/valider", tRespDeleg, Map.of("commentaire", "Accord")).andExpect(status().isOk()).andExpect(jsonPath("$.statut").value("validee_responsable"));
-        send(HttpMethod.POST, "/api/v1/validation/demandes/" + a + "/valider", tRespDeleg, null).andExpect(status().isOk());
+        // circuit par défaut : le responsable direct valide, la demande passe à la RH
+        send(HttpMethod.POST, "/api/v1/validation/demandes/" + a + "/valider", tResp1, Map.of("commentaire", "Accord")).andExpect(status().isOk()).andExpect(jsonPath("$.statut").value("validee_responsable"));
+        send(HttpMethod.POST, "/api/v1/validation/demandes/" + a + "/valider", tResp1, null).andExpect(status().isOk());
         assertEquals("validee_responsable", jdbc.queryForObject("SELECT statut FROM demande WHERE id = ?", String.class, a));
         assertNotNull(jdbc.queryForObject("SELECT valide_par FROM demande WHERE id = ?", String.class, a));
         JsonNode agent = json.readTree(send(HttpMethod.GET, "/api/v1/demandes/" + a, tA, null).andReturn().getResponse().getContentAsString());
-        assertEquals(4, agent.get("historique").size(), "création, soumission, niveau 1 franchi, validation finale");
-        assertTrue(agent.get("historique").get(3).get("commentaire").asText().contains("Accord"));
-        assertEquals(2, agent.get("chaine").size());
+        assertEquals(3, agent.get("historique").size(), "création, soumission, validation du responsable direct");
+        assertTrue(agent.get("historique").get(2).get("commentaire").asText().contains("Accord"));
+        assertEquals(1, agent.get("chaine").size());
         assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM notification WHERE type = 'DEMANDE_VALIDEE' AND utilisateur_id = (SELECT id FROM utilisateur WHERE login = 'va')", Integer.class));
     }
 

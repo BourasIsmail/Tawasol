@@ -847,7 +847,7 @@
   },
   "chain": {
     "title": "Chaîne de validation",
-    "hint": "Tous les responsables de la hiérarchie valident, dans l'ordre. La RH ne traite la demande qu'après le dernier niveau.",
+    "hint": "Le responsable direct valide, puis la RH traite la demande. Sans responsable dans la hiérarchie, la demande va directement à la RH.",
     "n_structure": "Responsable de structure",
     "n_delegation": "Délégué provincial",
     "n_coordination": "Coordinateur régional",
@@ -941,7 +941,12 @@
     "notValidated": "Non validé",
     "validated": "Validé",
     "toFill": "À renseigner",
-    "mdpChange": "Mot de passe à changer"
+    "mdpChange": "Mot de passe à changer",
+    "edit": "Modifier",
+    "sheet": "Fiche",
+    "editTitle": "Modifier le compte {login}",
+    "emailHint": "Laisser vide pour conserver l'adresse actuelle.",
+    "editNote": "L'identifiant ne doit pas être celui d'un autre compte ; l'ancien identifiant perd ses sessions ouvertes. L'adresse e-mail est celle de la fiche de l'agent. L'identité et le dossier de l'agent se modifient depuis « Fiche »."
   },
   "shell": {
     "panelTitle": "Votre espace RH, simple et sécurisé",

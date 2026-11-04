@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 import ma.entraide.tawassol.support.IntegrationTestBase;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -12,12 +13,15 @@ import org.springframework.http.HttpMethod;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Tous les responsables de la hiérarchie valident, dans l'ordre : structure, structure parente, délégation, coordination. */
+/** Mode « toute la hiérarchie » (validation.chaine.niveaux_max = 0) : tous les responsables valident, dans l'ordre : structure, structure parente, délégation, coordination. */
 class ChaineValidationIT extends IntegrationTestBase {
     String deleg, dest, parent, enfant, pAgent, r1, r2, r3, r4, suppleant, rh;
     String tAgent, t1, t2, t3, t4, tSupp, tRh, tCell;
 
+    @AfterEach void remettreLeParametre() { jdbc.update("UPDATE parametre SET valeur = '1' WHERE cle = 'validation.chaine.niveaux_max'"); }
+
     @BeforeEach void fixture() throws Exception {
+        jdbc.update("UPDATE parametre SET valeur = '0' WHERE cle = 'validation.chaine.niveaux_max'");
         deleg = data.delegation("CV"); dest = data.delegation("CVD");
         parent = data.structure(deleg, null, "CVP"); enfant = data.structure(deleg, parent, "CVE");
         pAgent = data.personnel(enfant, "Agent"); r1 = data.personnel(parent, "Niv1"); r2 = data.personnel(parent, "Niv2"); r3 = data.personnel(parent, "Niv3"); r4 = data.personnel(parent, "Niv4");

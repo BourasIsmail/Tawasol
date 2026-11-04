@@ -104,4 +104,49 @@ class AdminIT extends IntegrationTestBase {
         assertTrue(p.toString().contains("conge.annuel.droit_jours") && p.toString().contains("non_valide"));
         get("/api/v1/admin/parametres", tRh, 403);
     }
+
+    // ---- l'administrateur modifie identifiants, identité et dossier ----
+
+    String persDe(String userId) { return jdbc.queryForObject("SELECT personnel_id FROM utilisateur WHERE id = ?", String.class, userId); }
+
+    @Test void identifiantEtEmailDuCompte() throws Exception {
+        String ur = "/api/v1/admin/utilisateurs/" + agentId + "/identifiants";
+        send(HttpMethod.PUT, ur, tAgent, Map.of("login", "zz1")).andExpect(status().isForbidden());
+        send(HttpMethod.PUT, ur, tRh, Map.of("login", "zz1")).andExpect(status().isForbidden());
+        send(HttpMethod.PUT, "/api/v1/admin/utilisateurs/" + adminId + "/identifiants", tAdmin, Map.of("login", "zz9")).andExpect(status().isForbidden());   // pas son propre compte
+        send(HttpMethod.PUT, ur, tAdmin, Map.of("login", "adm")).andExpect(status().isConflict());                   // identifiant déjà pris
+        send(HttpMethod.PUT, ur, tAdmin, Map.of("login", "a b")).andExpect(status().isUnprocessableEntity());
+        send(HttpMethod.PUT, ur, tAdmin, Map.of("email", "pas-un-email")).andExpect(status().isUnprocessableEntity());
+        assertTrue(jdbc.queryForObject("SELECT COUNT(*) FROM refresh_token WHERE utilisateur_id = ? AND revoque = 0", Integer.class, agentId) > 0);
+        send(HttpMethod.PUT, ur, tAdmin, Map.of("login", "ag.nouveau", "email", "nouveau@example.ma")).andExpect(status().isOk());
+        assertEquals("ag.nouveau", jdbc.queryForObject("SELECT login FROM utilisateur WHERE id = ?", String.class, agentId));
+        assertEquals("nouveau@example.ma", jdbc.queryForObject("SELECT email FROM personnel WHERE id = ?", String.class, persDe(agentId)));
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM refresh_token WHERE utilisateur_id = ? AND revoque = 0", Integer.class, agentId), "l'ancien identifiant ne garde aucune session");
+        String audit = jdbc.queryForObject("SELECT CONCAT(COALESCE(avant,''), COALESCE(apres,'')) FROM journal_audit WHERE action = 'COMPTE_IDENTIFIANTS_MODIFIES' ORDER BY cree_le DESC LIMIT 1", String.class);
+        assertFalse(audit.contains("nouveau@example.ma"), "le journal ne garde jamais l'adresse e-mail");
+        assertTrue(audit.contains("ag.nouveau"));
+        // un compte sans agent n'a pas d'e-mail
+        send(HttpMethod.PUT, "/api/v1/admin/utilisateurs/" + jdbc.queryForObject("SELECT id FROM utilisateur WHERE login = 'adm'", String.class) + "/identifiants", tAdmin, Map.of("email", "x@y.ma")).andExpect(status().isForbidden());
+    }
+
+    @Test void ficheDeLAgentModifiableParLAdministrateurSeulementIdentiteEtDossier() throws Exception {
+        String p = persDe(agentId);
+        send(HttpMethod.GET, "/api/v1/admin/personnel/" + p, tAgent, null).andExpect(status().isForbidden());
+        send(HttpMethod.GET, "/api/v1/admin/personnel/" + p, tRh, null).andExpect(status().isForbidden());
+        JsonNode f = get("/api/v1/admin/personnel/" + p, tAdmin, 200);
+        assertEquals("Agent", f.get("nomFr").asText());
+        assertFalse(f.toString().toLowerCase().contains("salaire"), "jamais de données de paie");
+        Map<String, Object> corps = new java.util.HashMap<>();
+        for (String k : new String[]{"matricule", "nomFr", "prenomFr", "nomAr", "prenomAr", "structureId", "gradeId", "dateRecrutement", "email", "telephone", "cin", "sexe", "situationFamiliale", "dateNaissance", "positionAdministrative", "echelon", "echelle", "dateEchelon"})
+            if (f.has(k) && !f.get(k).isNull()) corps.put(k, json.convertValue(f.get(k), Object.class));
+        corps.put("nomFr", "Renomme");
+        send(HttpMethod.PUT, "/api/v1/admin/personnel/" + p, tAdmin, corps).andExpect(status().isOk());
+        assertEquals("Renomme", jdbc.queryForObject("SELECT nom_fr FROM personnel WHERE id = ?", String.class, p));
+        send(HttpMethod.PUT, "/api/v1/admin/personnel/" + p, tAgent, corps).andExpect(status().isForbidden());
+        assertTrue(jdbc.queryForObject("SELECT COUNT(*) FROM journal_audit WHERE action = 'PERSONNEL_MODIFIE'", Integer.class) >= 1, "la modification est tracée comme pour la RH");
+        get("/api/v1/admin/structures", tAdmin, 200);
+        get("/api/v1/admin/grades", tAdmin, 200);
+        send(HttpMethod.GET, "/api/v1/admin/structures", tRh, null).andExpect(status().isForbidden());
+        get("/api/v1/admin/personnel/" + p + "/carriere", tAdmin, 200);
+    }
 }

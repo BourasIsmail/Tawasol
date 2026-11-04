@@ -78,7 +78,8 @@ cat > "$OUT/09_soldes_conge.sql" <<'EOSQL'
 SET NAMES utf8mb4;
 INSERT IGNORE INTO parametre (cle, valeur, date_effet, reference_texte, statut_validation) VALUES
 ('conge.report.annees_max','0','2026-01-01','Report désactivé par défaut : règle à fournir par la RH et le juridique','non_valide'),
-('conge.report.plafond_jours','0','2026-01-01','Plafond du report : règle à fournir par la RH et le juridique','non_valide');
+('conge.report.plafond_jours','0','2026-01-01','Plafond du report : règle à fournir par la RH et le juridique','non_valide'),
+('validation.chaine.niveaux_max','1','2026-01-01','Décision de l''Entraide Nationale : responsable direct puis RH (0 = toute la hiérarchie) ; à confirmer par écrit','non_valide');
 UPDATE parametre SET reference_texte = 'Valeur d''exemple (~22 jours ouvrables) : à valider par la RH et le juridique, y compris pour les non titulaires'
  WHERE cle = 'conge.annuel.droit_jours' AND reference_texte IS NULL;
 INSERT INTO solde_conge (id, personnel_id, annee, droit, pris, reporte, source, a_verifier)

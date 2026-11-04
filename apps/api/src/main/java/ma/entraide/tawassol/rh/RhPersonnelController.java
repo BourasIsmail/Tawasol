@@ -21,7 +21,7 @@ public class RhPersonnelController {
     public record PersonnelRequest(String matricule, String nomFr, String prenomFr, String nomAr, String prenomAr, String structureId, String gradeId, LocalDate dateRecrutement, String email,
                                    String telephone, String cin, String sexe, String situationFamiliale, LocalDate dateNaissance, String positionAdministrative, String echelon, Integer echelle,
                                    LocalDate dateEchelon, String decisionRef, LocalDate dateEffet) {
-        PersonnelRhService.Input toInput() {
+        public PersonnelRhService.Input toInput() {
             return new PersonnelRhService.Input(matricule, nomFr, prenomFr, nomAr, prenomAr, structureId, gradeId, dateRecrutement, email, telephone, cin, sexe, situationFamiliale, dateNaissance, positionAdministrative, echelon, echelle, dateEchelon, decisionRef, dateEffet);
         }
     }
@@ -54,16 +54,7 @@ public class RhPersonnelController {
     }
 
     @GetMapping("/personnel/{id}")
-    public Map<String, Object> fiche(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String id) {
-        Map<String, Object> m = jdbc.queryForList("""
-            SELECT p.id, p.matricule, p.nom_fr AS nomFr, p.prenom_fr AS prenomFr, p.nom_ar AS nomAr, p.prenom_ar AS prenomAr, p.grade_id AS gradeId, g.libelle_fr AS gradeFr, p.structure_id AS structureId,
-                   s.nom_fr AS structureFr, p.date_recrutement AS dateRecrutement, p.email, p.telephone, p.cin, p.sexe, p.situation_familiale AS situationFamiliale, p.date_naissance AS dateNaissance,
-                   p.position_administrative AS positionAdministrative, p.echelon, p.echelle, p.date_echelon AS dateEchelon, p.est_actif AS actif
-              FROM personnel p JOIN structure s ON s.id = p.structure_id LEFT JOIN grade g ON g.id = p.grade_id WHERE p.id = ?
-            """, id).stream().findFirst().orElseThrow(ApiException::notFound);
-        audit.record(u.userId(), "PERSONNEL_READ", "personnel", id, null, null);
-        return m;
-    }
+    public Map<String, Object> fiche(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String id) { return service.fiche(u, id); }
 
     @PostMapping("/personnel")
     @ResponseStatus(HttpStatus.CREATED)

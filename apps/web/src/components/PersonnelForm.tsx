@@ -14,17 +14,18 @@ interface Ref { id: string; code: string | number; nomFr?: string; libelleFr?: s
 interface Ev { id: string; type: string; ancienneValeur?: string; nouvelleValeur: string; dateEffet: string; decisionRef?: string }
 const EMPTY: Fiche = { matricule: '', nomFr: '', prenomFr: '', nomAr: '', prenomAr: '', structureId: '', dateRecrutement: '' };
 
-export function PersonnelForm({ id }: { id?: string }) {
+export function PersonnelForm({ id, scope = 'rh' }: { id?: string; scope?: 'rh' | 'admin' }) {
+  const base = scope === 'admin' ? 'admin' : 'rh';
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
   const qc = useQueryClient();
   const [tab, setTab] = useState<'id' | 'car'>('id');
   const [f, setF] = useState<Record<string, string>>({});
-  const fiche = useQuery({ queryKey: ['rhfiche', id], queryFn: () => api<Fiche>(`rh/personnel/${id}`), enabled: !!id });
-  const structs = useQuery({ queryKey: ['rhstructs'], queryFn: () => api<(Ref & { actif: boolean | number })[]>('rh/structures') });
-  const grades = useQuery({ queryKey: ['rhgrades'], queryFn: () => api<Ref[]>('rh/grades') });
-  const car = useQuery({ queryKey: ['rhcar', id], queryFn: () => api<Ev[]>(`rh/personnel/${id}/carriere`), enabled: !!id && tab === 'car' });
+  const fiche = useQuery({ queryKey: ['rhfiche', scope, id], queryFn: () => api<Fiche>(`${base}/personnel/${id}`), enabled: !!id });
+  const structs = useQuery({ queryKey: ['rhstructs'], queryFn: () => api<(Ref & { actif: boolean | number })[]>(`${base}/structures`) });
+  const grades = useQuery({ queryKey: ['rhgrades'], queryFn: () => api<Ref[]>(`${base}/grades`) });
+  const car = useQuery({ queryKey: ['rhcar', id], queryFn: () => api<Ev[]>(`${base}/personnel/${id}/carriere`), enabled: !!id && tab === 'car' });
   useEffect(() => {
     const src = id ? fiche.data : EMPTY;
     if (src) setF(Object.fromEntries(Object.entries(src).map(([k, v]) => [k, v == null ? '' : String(v)])));
@@ -32,7 +33,7 @@ export function PersonnelForm({ id }: { id?: string }) {
   const set = (k: string) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value });
   const payload = () => ({ ...f, echelle: f.echelle ? Number(f.echelle) : undefined, gradeId: f.gradeId || undefined });
   const save = useMutation({
-    mutationFn: () => (id ? api<{ id: string }>(`rh/personnel/${id}`, { method: 'PUT', json: payload() }) : api<{ id: string }>('rh/personnel', { method: 'POST', json: payload() })),
+    mutationFn: () => (id ? api<{ id: string }>(`${base}/personnel/${id}`, { method: 'PUT', json: payload() }) : api<{ id: string }>('rh/personnel', { method: 'POST', json: payload() })),
     onSuccess: (r) => { qc.invalidateQueries({ queryKey: ['rhfiche'] }); qc.invalidateQueries({ queryKey: ['rhcar'] }); if (!id) router.push(`/${locale}/rh/personnel/${r.id}`); },
   });
   const off = useMutation({ mutationFn: () => api(`rh/personnel/${id}`, { method: 'DELETE' }), onSuccess: () => router.push(`/${locale}/rh/personnel`) });
@@ -65,7 +66,7 @@ export function PersonnelForm({ id }: { id?: string }) {
           {save.isSuccess && <p className="okt" role="status">{t('rhstaff.saved')}</p>}
           <div className="acts">
             <button type="button" className="btn pri" disabled={save.isPending} onClick={() => save.mutate()}>{t('rhstaff.save')}</button>
-            {id && <button type="button" className="btn bad" onClick={() => off.mutate()}>{t('rhstaff.deactivate')}</button>}
+            {id && scope === 'rh' && <button type="button" className="btn bad" onClick={() => off.mutate()}>{t('rhstaff.deactivate')}</button>}
           </div>
           <p className="rib"><Icon name="lock" />{t('rhstaff.sensitiveNote')}</p>
         </Card>

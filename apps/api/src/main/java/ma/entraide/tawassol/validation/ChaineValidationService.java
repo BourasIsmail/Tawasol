@@ -8,12 +8,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import ma.entraide.tawassol.hierarchy.HierarchyIndex;
+import ma.entraide.tawassol.param.ParametreService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 /**
  * Chaîne de validation par les responsables, commune aux demandes (congés, attestations…) et aux missions.
- * Tous les responsables de la hiérarchie valident, dans l'ordre, du plus proche au plus haut ; un rejet à un niveau arrête la chaîne.
+ * Par défaut (validation.chaine.niveaux_max = 1) : le responsable direct valide, puis la RH ; valeur 0 : tous les responsables de la hiérarchie
+ * valident, dans l'ordre, du plus proche au plus haut. Un rejet à un niveau arrête la chaîne.
  * Un niveau sans responsable n'existe pas (il est simplement absent). Le suppléant d'un responsable décide à sa place et c'est tracé.
  */
 @Service
@@ -25,15 +27,19 @@ public class ChaineValidationService {
     private final JdbcTemplate jdbc;
     private final HierarchyIndex hierarchy;
     private final Clock clock;
+    private final ParametreService params;
 
-    public ChaineValidationService(JdbcTemplate jdbc, HierarchyIndex hierarchy, Clock clock) { this.jdbc = jdbc; this.hierarchy = hierarchy; this.clock = clock; }
+    public ChaineValidationService(JdbcTemplate jdbc, HierarchyIndex hierarchy, Clock clock, ParametreService params) { this.jdbc = jdbc; this.hierarchy = hierarchy; this.clock = clock; this.params = params; }
 
     /** Fige la chaîne de l'objet. Retourne les étapes créées (vide : aucun responsable dans la hiérarchie). */
     public List<Etape> construire(String type, String objetId, String requesterPersonnelId, String structureId) {
         jdbc.update("DELETE FROM etape_validation WHERE objet_type = ? AND objet_id = ?", type, objetId);
         int ordre = 1;
-        for (HierarchyIndex.Niveau n : hierarchy.chaine(requesterPersonnelId, structureId))
+        int max = params.integer("validation.chaine.niveaux_max", java.time.LocalDate.now(clock), 1);   // 1 = responsable direct seulement ; 0 = toute la hiérarchie
+        for (HierarchyIndex.Niveau n : hierarchy.chaine(requesterPersonnelId, structureId)) {
+            if (max > 0 && ordre > max) break;
             jdbc.update("INSERT INTO etape_validation (id, objet_type, objet_id, ordre, niveau, responsable_personnel_id) VALUES (UUID(),?,?,?,?,?)", type, objetId, ordre++, n.niveau(), n.personnelId());
+        }
         return etapes(type, objetId);
     }
 
