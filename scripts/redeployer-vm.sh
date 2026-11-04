@@ -35,12 +35,25 @@ PORT=$(printf '%s' "$DB_URL" | sed -nE 's#^jdbc:mysql://[^:/?]+:([0-9]+).*#\1#p'
 BASE=$(printf '%s' "$DB_URL" | sed -E 's#^jdbc:mysql://[^/]+/([^?]+).*#\1#')
 [ -n "$HOTE" ] && [ -n "$BASE" ] || echec "DB_URL illisible : $DB_URL"
 export MYSQL_PWD="$DB_PASSWORD"
-SQLCMD=(mysql -h "$HOTE" -P "$PORT" -u "$DB_USER" --protocol=TCP --default-character-set=utf8mb4 --max-allowed-packet=256M)
-for c in mysql mysqldump; do command -v "$c" >/dev/null || echec "$c introuvable (sudo apt-get install -y mysql-client)"; done
+# Client MySQL : celui de la VM s'il existe, sinon un client dans un conteneur Docker (rien à installer ; la base peut être sur une autre machine).
+MYSQL_IMAGE="${MYSQL_IMAGE:-mysql:8.4}"
+if command -v mysql >/dev/null && command -v mysqldump >/dev/null; then
+  CLIENT="client MySQL de la VM"
+  SQLCMD=(mysql -h "$HOTE" -P "$PORT" -u "$DB_USER" --protocol=TCP --default-character-set=utf8mb4 --max-allowed-packet=256M)
+  DUMPCMD=(mysqldump -h "$HOTE" -P "$PORT" -u "$DB_USER" --protocol=TCP --single-transaction --default-character-set=utf8mb4)
+  mysqldump --help 2>/dev/null | grep -q -- '--no-tablespaces' && DUMPCMD+=(--no-tablespaces)
+elif command -v docker >/dev/null; then
+  CLIENT="client MySQL dans Docker ($MYSQL_IMAGE)"
+  SQLCMD=(docker run --rm -i --network host -e MYSQL_PWD "$MYSQL_IMAGE" mysql -h "$HOTE" -P "$PORT" -u "$DB_USER" --protocol=TCP --default-character-set=utf8mb4 --max-allowed-packet=256M)
+  DUMPCMD=(docker run --rm --network host -e MYSQL_PWD "$MYSQL_IMAGE" mysqldump -h "$HOTE" -P "$PORT" -u "$DB_USER" --protocol=TCP --single-transaction --default-character-set=utf8mb4 --no-tablespaces)
+else
+  echec "aucun client MySQL : installez-le (sudo apt-get install -y mysql-client) ou installez Docker"
+fi
 [ "$DOCKER" = 0 ] || { command -v docker >/dev/null || echec "docker introuvable"; command -v git >/dev/null || echec "git introuvable"; }
 if [ -n "$SQL" ]; then [ -f "$SQL" ] || echec "fichier SQL introuvable : $SQL (copiez-le sur la VM, par exemple avec scp, ou passez « aucun »)"; fi
-"${SQLCMD[@]}" -N "$BASE" -e "SELECT 1" >/dev/null 2>&1 || echec "connexion impossible à $HOTE:$PORT/$BASE avec l'utilisateur $DB_USER"
+"${SQLCMD[@]}" -N "$BASE" -e "SELECT 1" >/dev/null 2>&1 || echec "connexion impossible à $HOTE:$PORT/$BASE avec l'utilisateur $DB_USER (réseau, droits ou mot de passe ; avec Docker : l'image $MYSQL_IMAGE doit être téléchargeable)"
 echo "Base      : $HOTE:$PORT/$BASE (utilisateur $DB_USER)"
+echo "Client    : $CLIENT"
 echo "Dépôt     : $REPO_DIR"
 echo "SQL       : ${SQL:-aucun}"
 
@@ -55,8 +68,7 @@ fi
 etape "2/8 Sauvegarde de la base"
 DOSSIER="$HOME/sauvegardes-tawassol"; mkdir -p "$DOSSIER"; chmod 700 "$DOSSIER"
 SAUVEGARDE="$DOSSIER/${BASE}_$(date +%Y%m%d_%H%M%S).sql.gz"
-OPT_TS=""; mysqldump --help 2>/dev/null | grep -q -- '--no-tablespaces' && OPT_TS="--no-tablespaces"
-mysqldump -h "$HOTE" -P "$PORT" -u "$DB_USER" --protocol=TCP --single-transaction --default-character-set=utf8mb4 $OPT_TS "$BASE" | gzip > "$SAUVEGARDE"
+"${DUMPCMD[@]}" "$BASE" | gzip > "$SAUVEGARDE"
 [ -s "$SAUVEGARDE" ] && [ "$(gzip -l "$SAUVEGARDE" | awk 'NR==2{print $2}')" -gt 1000 ] || echec "sauvegarde vide ou incomplète : $SAUVEGARDE"
 chmod 600 "$SAUVEGARDE"
 echo "Sauvegarde : $SAUVEGARDE ($(du -h "$SAUVEGARDE" | cut -f1))"
