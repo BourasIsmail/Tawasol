@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class MigrationM2IT extends IntegrationTestBase {
     @Autowired MigrationService service;
 
-    private static final String[] TABLES = {"coordinations", "delegations", "structures", "grades", "responsabilites", "administrations", "moyen_transports",
+    private static final String[] TABLES = {"annees", "coordinations", "delegations", "structures", "grades", "responsabilites", "administrations", "moyen_transports",
             "puissance_fiscales", "programmes", "holidays", "personnes", "roles", "users", "deplacement_propres", "deplacement_programmes", "deplacement_programme_statuses", "conge_types", "conges", "messages", "salaire_fonctionnaire", "Note_Annuelle"};
 
     @BeforeAll void creerLaSource() {
@@ -45,7 +45,8 @@ class MigrationM2IT extends IntegrationTestBase {
         jdbc.execute("CREATE TABLE deplacement_programmes (id BIGINT PRIMARY KEY, objet VARCHAR(200), date_depart DATETIME, date_retour DATETIME NULL, date_ordm DATE NULL, numero_ordm VARCHAR(40) NULL, numero_etat VARCHAR(60) NULL, nombre_repas_taux_1 INT NULL, indemnite_taux_1 DOUBLE NULL, nombre_repas_taux_2 INT NULL, indemnite_taux_2 DOUBLE NULL, cycle INT NULL, programme_id BIGINT NULL, personne_id BIGINT, annee_id INT, moyen_transport_id BIGINT NULL, status_id BIGINT, depart_delegation_id BIGINT NULL, arrival_delegation_id BIGINT NULL, parent_deplacement_id BIGINT NULL, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME NULL, phase INT NULL)");
         jdbc.execute("CREATE TABLE salaire_fonctionnaire (som INT, matricule VARCHAR(6), annee INT, mois INT, ech TEXT NULL, echl TEXT NULL, net DECIMAL(8,2), rappel TEXT NULL, all_familiale TEXT NULL, grade VARCHAR(60), code_grade INT, date_ech DATE, date_echl DATE NULL, Retenue_Mutuelle DECIMAL(8,2) NULL, commentaire VARCHAR(250) NULL)");
         jdbc.execute("CREATE TABLE Note_Annuelle (Som INT, Matricule VARCHAR(6), Annee INT, Note TEXT NULL)");
-        jdbc.execute("CREATE TABLE conges (id BIGINT PRIMARY KEY, personne_id BIGINT, date_debut DATE NULL, date_fin DATE NULL, numero_demande INT NULL, date_demande DATE NULL, article_special VARCHAR(50) NULL, lieu_conge VARCHAR(100) NULL, langue_decision VARCHAR(5) NULL, type_id BIGINT, status_id BIGINT, annee_courante_id INT NULL, nombre_jours_annee_courante INT NULL, nombre_jours_annee_precedente INT NULL, objet_conge_exceptionnel VARCHAR(200) NULL, nombre_jours_conge INT NULL, remplacant_id BIGINT NULL, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME NULL)");
+        jdbc.execute("CREATE TABLE annees (id BIGINT PRIMARY KEY, annee INT)");
+        jdbc.execute("CREATE TABLE conges (id BIGINT PRIMARY KEY, personne_id BIGINT, date_debut DATE NULL, date_fin DATE NULL, numero_demande INT NULL, date_demande DATE NULL, article_special VARCHAR(50) NULL, lieu_conge VARCHAR(100) NULL, langue_decision VARCHAR(5) NULL, type_id BIGINT, status_id BIGINT, annee_courante_id INT NULL, annee_precedente_id INT NULL, nombre_jours_annee_courante INT NULL, nombre_jours_annee_precedente INT NULL, objet_conge_exceptionnel VARCHAR(200) NULL, nombre_jours_conge INT NULL, remplacant_id BIGINT NULL, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME NULL)");
         jdbc.execute("CREATE TABLE messages (id BIGINT PRIMARY KEY, message TEXT, response TEXT NULL, phone VARCHAR(30) NULL, user_id BIGINT NULL, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME NULL)");
         jdbc.execute("CREATE TABLE users (id BIGINT PRIMARY KEY, is_active TINYINT, email VARCHAR(150), password VARCHAR(100), role_id BIGINT, delegation_id BIGINT, coordination_id BIGINT, structure_id BIGINT, personne_id BIGINT, deleted_at DATETIME NULL)");
     }
@@ -88,6 +89,8 @@ class MigrationM2IT extends IntegrationTestBase {
         jdbc.update("INSERT INTO salaire_fonctionnaire (som, matricule, annee, mois, ech, echl, net, rappel, all_familiale, grade, code_grade, date_ech, date_echl, Retenue_Mutuelle) VALUES (1,'P9001',2026,8,'4','6',5000.50,'0.00','300.00','G',1,'2024-01-01','2025-01-01',120.25), (1,'P9001',2026,9,'5','6',5100.75,'','','G',1,'2025-01-01','2025-01-01',120.25), (2,'Z0000',2026,9,'1','1',4000,'0','0','G',1,'2020-01-01',NULL,0)");
         jdbc.update("INSERT INTO Note_Annuelle (Som, Matricule, Annee, Note) VALUES (1,'P9001',2024,'17.5'), (2,'P9001',2024,'17.50'), (3,'P9001',2025,'18'), (4,'P9001',2025,'19'), (5,'P9002',2024,''), (6,'ZZZZ',2024,'15')");
         jdbc.update("INSERT INTO conges (id, personne_id, date_debut, date_fin, numero_demande, type_id, status_id, nombre_jours_annee_courante, nombre_jours_annee_precedente, created_at, updated_at) VALUES (1,10,'2024-08-01','2024-08-10',843,1,5,8,0,'2024-07-20 10:00:00','2024-07-20 10:00:00'), (2,10,'0004-01-02','2024-12-06',12,1,2,0,5,'2024-07-20 10:00:00','2024-07-20 10:00:00')");
+        jdbc.update("INSERT INTO annees (id, annee) VALUES (2023,2023),(2024,2024),(2025,2025),(2026,2026)");
+        jdbc.update("UPDATE conges SET annee_courante_id = 2024, annee_precedente_id = 2023 WHERE id = 1");
         jdbc.update("INSERT INTO messages (id, message, response, user_id, created_at, updated_at) VALUES (1,'Bonjour','Réponse',1,'2024-06-01 10:00:00','2024-06-01 10:00:00')");
         jdbc.update("INSERT INTO roles (id, code) VALUES (1,'super_administrateur'), (4,'coordination'), (9,'inconnu')");
         jdbc.update("INSERT INTO users (id, is_active, email, password, role_id, coordination_id) VALUES (1,1,'SuperAdmin@Legacy.ma','$2y$12$abcdefghijklmnopqrstuv',1,NULL), (8,1,'coor.tanger@legacy.ma','$2y$12$abcdefghijklmnopqrstuv',4,1), (9,1,'x@legacy.ma','$2y$12$abc',9,NULL)");
@@ -218,8 +221,14 @@ class MigrationM2IT extends IntegrationTestBase {
         for (String k : List.of("somme_repas", "somme_transport", "somme_km")) assertEquals(0, ((java.math.BigDecimal) rec.get(k).get("ecart")).signum(), k);
         @SuppressWarnings("unchecked") Map<String, Long> codes = (Map<String, Long>) r.rapport().get("anomalies_par_code");
         for (String c : List.of("NUMERO_ABSENT", "RETOUR_NON_RENSEIGNE", "ETAT_EN_DOUBLE", "DATE_CONGE_INVALIDE", "SOLDES_A_VERIFIER")) assertTrue(codes.containsKey(c), c + " dans " + codes);
+        // les jours du congé annuel validé sont imputés à l'année de solde (8 jours en 2024) et le solde est reconstitué à partir d'eux
+        assertEquals(0, new java.math.BigDecimal("8").compareTo(jdbc.queryForObject("SELECT COALESCE(SUM(ci.jours),0) FROM conge_imputation ci JOIN demande d ON d.id = ci.demande_id WHERE d.id_legacy = 1 AND ci.annee = 2024", java.math.BigDecimal.class)));
+        assertEquals(0, new java.math.BigDecimal("8").compareTo(jdbc.queryForObject("SELECT SUM(pris) FROM solde_conge WHERE annee = 2024 AND source = 'reconstitue'", java.math.BigDecimal.class)));
+        int imputations = jdbc.queryForObject("SELECT COUNT(*) FROM conge_imputation", Integer.class);
         // rejouer ne duplique rien
         var r2 = service.executer(jdbc, true, "VALIDATION-TEST-M4");
+        assertEquals(imputations, jdbc.queryForObject("SELECT COUNT(*) FROM conge_imputation", Integer.class), "les imputations sont réécrites, jamais ajoutées");
+        assertEquals(0, new java.math.BigDecimal("8").compareTo(jdbc.queryForObject("SELECT SUM(pris) FROM solde_conge WHERE annee = 2024 AND source = 'reconstitue'", java.math.BigDecimal.class)));
         assertEquals(0, t(r2, "deplacement_propres").get("crees")); assertEquals(4, t(r2, "deplacement_propres").get("deja_presents"));
         assertEquals(0, t(r2, "conges").get("crees"));
     }

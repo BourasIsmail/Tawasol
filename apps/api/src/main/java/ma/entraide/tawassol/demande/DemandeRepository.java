@@ -126,6 +126,7 @@ public class DemandeRepository {
             SELECT COALESCE(SUM(d.nb_jours), 0) FROM demande d JOIN type_demande t ON t.id = d.type_demande_id
              WHERE d.personnel_id = :p AND d.id <> :x AND t.code = 'CONGE_ANNUEL' AND d.statut IN ('soumise','validee_responsable')
                AND YEAR(d.date_debut) = :a AND (d.date_fin IS NULL OR d.date_fin >= :today)
+               AND NOT EXISTS (SELECT 1 FROM conge_imputation ci WHERE ci.demande_id = d.id)
             """, new MapSqlParameterSource().addValue("p", personnelId).addValue("x", excludeId).addValue("a", annee).addValue("today", aujourdhui), BigDecimal.class);
         return v == null ? BigDecimal.ZERO : v;
     }

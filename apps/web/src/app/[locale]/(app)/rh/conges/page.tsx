@@ -9,7 +9,7 @@ import { Icon } from '@/components/Icon';
 import { CongesTabs } from '@/components/CongesTabs';
 import { Card, Empty, ErrorBox, Field, Loading, Page, WebOnly } from '@/components/ui';
 
-interface Row { id: string; numero?: string; typeLibelle: string; statut: string; dateDebut: string; dateFin: string; nbJours: number; matricule: string; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string; herite: number | boolean }
+interface Row { id: string; numero?: string; typeLibelle: string; statut: string; dateDebut: string; dateFin: string; nbJours: number; matricule: string; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string; herite: number | boolean; dejaCompte: number | boolean }
 
 /** Congés « soumis » dont la période est passée : la RH tranche (pris ou jamais pris), y compris en lot, jamais automatiquement. */
 export default function Regulariser() {
@@ -54,7 +54,7 @@ export default function Regulariser() {
                 <tr key={r.id}>
                   <td><input type="checkbox" aria-label={nm(r)} checked={sel.has(r.id)} onChange={() => toggle(r.id)} /></td>
                   <td className="mono">{r.matricule}</td><td>{nm(r)}</td><td>{r.typeLibelle}{r.herite ? <> <span className="pill">{t('cg.legacy')}</span></> : null}</td>
-                  <td className="mono">{fmtDate(locale, r.dateDebut)} → {fmtDate(locale, r.dateFin)}</td><td>{r.nbJours}</td>
+                  <td className="mono">{fmtDate(locale, r.dateDebut)} → {fmtDate(locale, r.dateFin)}</td><td>{r.nbJours}{r.dejaCompte ? <> <span className="pill ok">{t('cg.alreadyCounted')}</span></> : null}</td>
                 </tr>
               ))}</tbody></table></div>
           </Card>

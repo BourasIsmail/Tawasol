@@ -18,7 +18,7 @@ import org.springframework.http.HttpMethod;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Soldes de congé : décompte des approuvés, périodes passées, régularisation par la RH, restitution, reconstitution rejouable, cohérence. */
+/** Soldes de congé selon le modèle de Suivi RH : jours imputés par année, périodes passées, régularisation, restitution, reconstitution rejouable, cohérence. */
 class SoldeCongeIT extends IntegrationTestBase {
     @Autowired SoldeCongeService soldes;
     String agent, rhPers, tRh, tAgent, struct;
@@ -45,6 +45,13 @@ class SoldeCongeIT extends IntegrationTestBase {
         return id;
     }
 
+    /** Imputation telle que la reprise de Suivi RH l'écrit : jours pris sur une année de solde. */
+    void impute(String demandeId, int annee, int jours) {
+        jdbc.update("INSERT INTO conge_imputation (demande_id, annee, jours) VALUES (?,?,?) ON DUPLICATE KEY UPDATE jours = VALUES(jours)", demandeId, annee, jours);
+    }
+
+    void reconstituer() { for (String sql : LegacyMigrator.SQL_SOLDES_RECONSTITUES) jdbc.update(sql); }
+
     JsonNode post(String path, String token, Object body, int statut) throws Exception {
         return json.readTree(send(HttpMethod.POST, path, token, body).andExpect(status().is(statut)).andReturn().getResponse().getContentAsString());
     }
@@ -53,22 +60,43 @@ class SoldeCongeIT extends IntegrationTestBase {
         return json.readTree(send(HttpMethod.GET, path, token, null).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
     }
 
-    @Test void lesJoursApprouvesSontDeduitsEtLaReconstitutionSeRejoueSansDoubler() {
-        conge(agent, "approuvee", LocalDate.of(an, 2, 2), LocalDate.of(an, 2, 13), 10, true);
-        conge(agent, "approuvee", LocalDate.of(an, 5, 4), LocalDate.of(an, 5, 8), 5, true);
-        jdbc.update(LegacyMigrator.SQL_SOLDES_RECONSTITUES);
-        jdbc.update(LegacyMigrator.SQL_SOLDES_RECONSTITUES);   // rejouer ne double rien
-        SoldeCongeService.Solde s = soldes.get(agent, an, null);
-        assertEquals(0, new BigDecimal("15").compareTo(s.pris()));
-        assertEquals(0, new BigDecimal("22").compareTo(s.droit()), "droit par défaut, paramétrable");
-        assertEquals(0, new BigDecimal("7").compareTo(s.disponible()));
-        assertEquals("reconstitue", s.source());
-        assertTrue(s.aVerifier());
+    @Test void leReste_parAnnee_suitLesJoursImputesCommeDansSuiviRh() {
+        // cas réel de Suivi RH (agent P4071) : 22 jours par an ; les congés consomment d'abord l'année précédente
+        int a2 = an, a1 = an - 1, a0 = an - 2;
+        String c1 = conge(agent, "approuvee", LocalDate.of(a1 - 1, 12, 30), LocalDate.of(a1, 1, 15), 11, true);
+        String c2 = conge(agent, "approuvee", LocalDate.of(a1, 5, 19), LocalDate.of(a1, 6, 2), 11, true);
+        String c3 = conge(agent, "approuvee", LocalDate.of(a1, 7, 21), LocalDate.of(a1, 7, 22), 2, true);
+        String c4 = conge(agent, "approuvee", LocalDate.of(a1, 9, 8), LocalDate.of(a1, 9, 12), 5, true);
+        String c5 = conge(agent, "soumise", LocalDate.of(a2, 1, 26), LocalDate.of(a2, 1, 30), 5, true);      // « créé » dans Suivi RH : compté
+        String c6 = conge(agent, "soumise", LocalDate.of(a2, 5, 14), LocalDate.of(a2, 5, 29), 9, true);      // « modifié » : compté
+        String c7 = conge(agent, "approuvee", LocalDate.of(a2, 10, 5), LocalDate.of(a2, 10, 9), 5, true);
+        impute(c1, a1 - 1, 11); impute(c2, a0, 11); impute(c3, a1, 2); impute(c4, a1, 5);
+        impute(c5, a1, 5); impute(c6, a1, 9); impute(c7, a2, 4); impute(c7, a1, 1);
+        reconstituer();
+        reconstituer();   // rejouer ne double rien
+        SoldeCongeService.Solde s2 = soldes.get(agent, a2, null), s1 = soldes.get(agent, a1, null);
+        assertEquals(0, new BigDecimal("18").compareTo(s2.disponible()), "reste de l'année en cours : 22 − 4");
+        assertEquals(0, new BigDecimal("4").compareTo(s2.pris()));
+        assertEquals(0, new BigDecimal("22").compareTo(s2.droit()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(s1.disponible()), "année précédente entièrement consommée : 22 − 22");
+        assertEquals("reconstitue", s2.source());
+        assertTrue(s2.aVerifier());
+    }
+
+    @Test void unCongeDejaCompteNeReservePasDeJoursEnPlus() {
+        LocalDate futur = LocalDate.now().plusDays(10);
+        String deja = conge(agent, "soumise", futur, futur.plusDays(4), 4, true);   // créé dans Suivi RH : ses jours sont déjà dans « pris »
+        impute(deja, futur.getYear(), 4);
+        reconstituer();
+        SoldeCongeService.Solde s = soldes.get(agent, futur.getYear(), null);
+        assertEquals(0, new BigDecimal("4").compareTo(s.pris()));
+        assertEquals(0, BigDecimal.ZERO.compareTo(s.reserve()), "pas de double décompte");
+        assertEquals(0, new BigDecimal("18").compareTo(s.disponible()));
     }
 
     @Test void uneDemandeSoumiseDontLaPeriodeEstPasseeNeReserveRien() {
         LocalDate passeDebut = LocalDate.now().minusDays(40), futurDebut = LocalDate.now().plusDays(10);
-        conge(agent, "soumise", passeDebut, passeDebut.plusDays(5), 8, true);          // période passée : ne réserve rien
+        conge(agent, "soumise", passeDebut, passeDebut.plusDays(5), 8, false);          // période passée : ne réserve rien
         conge(agent, "soumise", futurDebut, futurDebut.plusDays(4), 4, false);         // à venir : réserve ses jours
         BigDecimal attenduPasse = passeDebut.getYear() == futurDebut.getYear() ? new BigDecimal("4") : BigDecimal.ZERO;
         assertEquals(0, attenduPasse.compareTo(soldes.get(agent, passeDebut.getYear(), null).reserve()));
@@ -76,12 +104,11 @@ class SoldeCongeIT extends IntegrationTestBase {
     }
 
     @Test void laRhRegularisePlusieursDemandesEnLotSousSonControle() throws Exception {
-        String pris = conge(agent, "soumise", LocalDate.of(an, 1, 5), LocalDate.now().minusDays(30), 6, true);
-        String jamais = conge(agent, "validee_responsable", LocalDate.of(an, 1, 6), LocalDate.now().minusDays(29), 3, true);
+        String pris = conge(agent, "soumise", LocalDate.of(an, 1, 5), LocalDate.now().minusDays(30), 6, false);
+        String jamais = conge(agent, "validee_responsable", LocalDate.of(an, 1, 6), LocalDate.now().minusDays(29), 3, false);
         String futur = conge(agent, "soumise", LocalDate.now().plusDays(30), LocalDate.now().plusDays(33), 3, false);
         JsonNode l = get("/api/v1/rh/conges/a-regulariser", tRh);
         assertEquals(2, l.get("total").asInt(), "seules les périodes passées sont à régulariser");
-        // sans commentaire : refusé ; par un agent : interdit
         post("/api/v1/rh/conges/regulariser", tRh, Map.of("ids", List.of(pris), "decision", "approuver"), 422);
         post("/api/v1/rh/conges/regulariser", tAgent, Map.of("ids", List.of(pris), "decision", "approuver", "commentaire", "x"), 403);
         JsonNode r = post("/api/v1/rh/conges/regulariser", tRh, Map.of("ids", List.of(pris, futur), "decision", "approuver", "commentaire", "Congé pris, confirmé par le chef de service"), 200);
@@ -97,6 +124,22 @@ class SoldeCongeIT extends IntegrationTestBase {
         assertTrue(jdbc.queryForObject("SELECT COUNT(*) FROM journal_audit WHERE action = 'CONGE_REGULARISE'", Integer.class) >= 2);
     }
 
+    @Test void regulariserUnCongeDejaCompteNeDecomptePasDeuxFoisEtLeRejeterRestitue() throws Exception {
+        String herite = conge(agent, "soumise", LocalDate.of(an, 1, 5), LocalDate.now().minusDays(30), 6, true);   // « créé » dans Suivi RH, déjà dans le solde
+        impute(herite, an, 6);
+        reconstituer();
+        assertEquals(0, new BigDecimal("6").compareTo(soldes.get(agent, an, null).pris()));
+        assertTrue(get("/api/v1/rh/conges/a-regulariser", tRh).get("content").get(0).get("dejaCompte").asBoolean());
+        post("/api/v1/rh/conges/regulariser", tRh, Map.of("ids", List.of(herite), "decision", "approuver", "commentaire", "Pris, confirmé"), 200);
+        assertEquals(0, new BigDecimal("6").compareTo(soldes.get(agent, an, null).pris()), "approuver ne recompte pas des jours déjà comptés");
+        String autre = conge(agent, "soumise", LocalDate.of(an, 1, 7), LocalDate.now().minusDays(20), 4, true);
+        impute(autre, an, 4);
+        reconstituer();
+        assertEquals(0, new BigDecimal("10").compareTo(soldes.get(agent, an, null).pris()));
+        post("/api/v1/rh/conges/regulariser", tRh, Map.of("ids", List.of(autre), "decision", "rejeter", "commentaire", "Jamais pris"), 200);
+        assertEquals(0, new BigDecimal("6").compareTo(soldes.get(agent, an, null).pris()), "« jamais pris » restitue les jours comptés");
+    }
+
     @Test void laRhNeRegularisePasSonPropreConge() throws Exception {
         String mien = conge(rhPers, "soumise", LocalDate.of(an, 1, 5), LocalDate.now().minusDays(30), 5, true);
         JsonNode r = post("/api/v1/rh/conges/regulariser", tRh, Map.of("ids", List.of(mien), "decision", "approuver", "commentaire", "x"), 200);
@@ -105,8 +148,9 @@ class SoldeCongeIT extends IntegrationTestBase {
     }
 
     @Test void annulerUneApprobationRestitueLesJours() throws Exception {
-        String id = conge(agent, "approuvee", LocalDate.of(an, 3, 2), LocalDate.of(an, 3, 6), 5, false);
-        soldes.deduire(agent, an, new BigDecimal("5"));
+        String id = conge(agent, "soumise", LocalDate.of(an, 3, 2), LocalDate.of(an, 3, 6), 5, false);
+        jdbc.update("UPDATE demande SET statut = 'approuvee' WHERE id = ?", id);
+        soldes.imputer(id, agent, an, new BigDecimal("5"));
         assertEquals(0, new BigDecimal("5").compareTo(soldes.get(agent, an, null).pris()));
         post("/api/v1/rh/conges/" + id + "/annuler-approbation", tRh, Map.of("commentaire", ""), 422);
         post("/api/v1/rh/conges/" + id + "/annuler-approbation", tRh, Map.of("commentaire", "Congé non pris"), 200);
@@ -116,23 +160,24 @@ class SoldeCongeIT extends IntegrationTestBase {
     }
 
     @Test void controleDeCoherenceEtSoldesNegatifs() throws Exception {
-        conge(agent, "approuvee", LocalDate.of(an, 2, 2), LocalDate.of(an, 3, 20), 30, true);   // 30 jours pour un droit de 22
-        jdbc.update(LegacyMigrator.SQL_SOLDES_RECONSTITUES);
+        String id = conge(agent, "approuvee", LocalDate.of(an, 2, 2), LocalDate.of(an, 3, 20), 30, true);   // 30 jours pour un droit de 22
+        impute(id, an, 30);
+        reconstituer();
         JsonNode c = get("/api/v1/rh/conges/controle", tRh);
-        assertTrue(c.get("coherent").asBoolean(), "somme des approuvés = somme des pris");
+        assertTrue(c.get("coherent").asBoolean(), "jours imputés = jours pris des soldes tenus par le système");
         assertEquals(1, c.get("negatifsTotal").asInt());
         assertEquals("Agent", c.get("negatifs").get(0).get("nomFr").asText());
         assertTrue(c.get("negatifs").get(0).get("disponible").asDouble() < 0);
-        // un écart apparaît si le solde est modifié sans que les demandes le soient
-        jdbc.update("UPDATE solde_conge SET pris = pris + 2 WHERE personnel_id = ?", agent);
+        jdbc.update("UPDATE solde_conge SET pris = pris + 2 WHERE personnel_id = ?", agent);   // écart sans imputation correspondante
         assertFalse(get("/api/v1/rh/conges/controle", tRh).get("coherent").asBoolean());
     }
 
     @Test void laCorrectionDeLaRhFaitFoiEtResisteAuRejeuDeLaReconstitution() throws Exception {
-        conge(agent, "approuvee", LocalDate.of(an, 2, 2), LocalDate.of(an, 2, 13), 10, true);
-        jdbc.update(LegacyMigrator.SQL_SOLDES_RECONSTITUES);
+        String id = conge(agent, "approuvee", LocalDate.of(an, 2, 2), LocalDate.of(an, 2, 13), 10, true);
+        impute(id, an, 10);
+        reconstituer();
         send(HttpMethod.PUT, "/api/v1/rh/conges/soldes/" + agent + "/" + an, tRh, Map.of("droit", 25, "reporte", 3, "pris", 12)).andExpect(status().isOk());
-        jdbc.update(LegacyMigrator.SQL_SOLDES_RECONSTITUES);
+        reconstituer();
         SoldeCongeService.Solde s = soldes.get(agent, an, null);
         assertEquals("saisi", s.source());
         assertEquals(0, new BigDecimal("12").compareTo(s.pris()), "la valeur saisie n'est jamais écrasée par la reconstitution");
@@ -143,18 +188,27 @@ class SoldeCongeIT extends IntegrationTestBase {
         assertTrue(jdbc.queryForObject("SELECT COUNT(*) FROM journal_audit WHERE action = 'SOLDE_CONGE_CORRIGE'", Integer.class) >= 1);
     }
 
-    @Test void droitParCategorieEtReportParametrables() throws Exception {
+    @Test void droitParCategorieEtReportDesAnneesPrecedentesParametrables() throws Exception {
         assertEquals(0, new BigDecimal("22").compareTo(soldes.droit(agent, an)));
         jdbc.update("INSERT INTO parametre (cle, valeur, date_effet, statut_validation) VALUES ('conge.annuel.droit_jours.CONTRACTUEL','18','2026-01-01','non_valide')");
         send(HttpMethod.PUT, "/api/v1/rh/conges/soldes/" + agent + "/" + an, tRh, Map.of("categorieAgent", "contractuel")).andExpect(status().isOk());
         jdbc.update("DELETE FROM solde_conge WHERE personnel_id = ?", agent);
         assertEquals(0, new BigDecimal("18").compareTo(soldes.droit(agent, an)), "le droit suit la catégorie de l'agent");
-        // report désactivé par défaut : les jours non pris de l'an passé ne reviennent pas
+        // l'an passé : 8 jours pris sur 18, il reste 10
         jdbc.update("INSERT INTO solde_conge (id, personnel_id, annee, droit, pris, reporte, source) VALUES (UUID(), ?, ?, 18, 8, 0, 'saisi')", agent, an - 1);
-        assertEquals(0, BigDecimal.ZERO.compareTo(soldes.get(agent, an, null).reporte()));
+        assertEquals(0, new BigDecimal("18").compareTo(soldes.get(agent, an, null).utilisable()), "report désactivé par défaut : rien ne vient de l'an passé");
         jdbc.update("UPDATE parametre SET valeur = '1' WHERE cle = 'conge.report.annees_max'");
         jdbc.update("UPDATE parametre SET valeur = '6' WHERE cle = 'conge.report.plafond_jours'");
-        assertEquals(0, new BigDecimal("6").compareTo(soldes.get(agent, an, null).reporte()), "10 jours restants, plafonnés à 6");
+        SoldeCongeService.Solde s = soldes.get(agent, an, null);
+        assertEquals(0, new BigDecimal("18").compareTo(s.disponible()), "le reste de l'année en cours ne change pas");
+        assertEquals(0, new BigDecimal("24").compareTo(s.utilisable()), "10 jours restants l'an passé, plafonnés à 6, utilisables en plus");
+        // un congé de 20 jours consomme d'abord l'année précédente (6 jours), puis l'année courante (14)
+        String id = conge(agent, "soumise", LocalDate.of(an, 4, 6), LocalDate.of(an, 4, 24), 20, false);
+        jdbc.update("UPDATE demande SET statut = 'approuvee' WHERE id = ?", id);
+        soldes.imputer(id, agent, an, new BigDecimal("20"));
+        assertEquals(0, new BigDecimal("14").compareTo(soldes.get(agent, an, null).pris()));
+        assertEquals(0, new BigDecimal("14").compareTo(soldes.get(agent, an - 1, null).pris()), "8 déjà pris + 6 imputés");
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM conge_imputation WHERE demande_id = ?", Integer.class, id));
     }
 
     @Test void joursFeriesTenusParLaRh() throws Exception {
@@ -170,9 +224,10 @@ class SoldeCongeIT extends IntegrationTestBase {
     }
 
     @Test void soldesParAnneePourLAgentEtPourLaRh() throws Exception {
-        conge(agent, "approuvee", LocalDate.of(an - 1, 3, 2), LocalDate.of(an - 1, 3, 6), 5, true);
-        conge(agent, "approuvee", LocalDate.of(an, 2, 2), LocalDate.of(an, 2, 13), 10, true);
-        jdbc.update(LegacyMigrator.SQL_SOLDES_RECONSTITUES);
+        String a = conge(agent, "approuvee", LocalDate.of(an - 1, 3, 2), LocalDate.of(an - 1, 3, 6), 5, true);
+        String b = conge(agent, "approuvee", LocalDate.of(an, 2, 2), LocalDate.of(an, 2, 13), 10, true);
+        impute(a, an - 1, 5); impute(b, an, 10);
+        reconstituer();
         JsonNode mien = get("/api/v1/me/soldes-conge", tAgent);
         assertEquals(an, mien.get(0).get("annee").asInt(), "année la plus récente d'abord");
         assertEquals(an - 1, mien.get(1).get("annee").asInt());

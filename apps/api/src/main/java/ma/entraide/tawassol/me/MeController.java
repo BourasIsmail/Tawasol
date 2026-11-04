@@ -74,6 +74,7 @@ public class MeController {
         LocalDate today = LocalDate.now(clock);
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("soldeConges", soldes.get(pid, today.getYear(), null));
+        out.put("soldeAnneePrecedente", soldes.get(pid, today.getYear() - 1, null));
         out.put("demandesEnCours", jdbc.queryForObject("SELECT COUNT(*) FROM demande WHERE personnel_id = ? AND statut IN ('soumise','validee_responsable')", Integer.class, pid));
         out.put("notificationsNonLues", notifs.nonLues(u.userId()));
         out.put("dernierBulletin", jdbc.queryForList("SELECT annee, mois FROM salaire WHERE personnel_id = ? AND statut = 'publie' ORDER BY annee DESC, mois DESC LIMIT 1", pid).stream().findFirst().orElse(null));

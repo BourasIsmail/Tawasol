@@ -433,7 +433,7 @@
     "saved": "Brouillon enregistré.",
     "submittedMsg": "Note soumise à la RH.",
     "locked": "Cette note est soumise : vous ne pouvez plus la modifier.",
-    "rule": "Après validation par la RH, la note est verrouillée puis publiée à l'agent. Votre propre note est saisie par votre supérieur ou la RH.",
+    "rule": "Une demande « soumise » dont la période est passée ne réserve aucun jour. Beaucoup viennent de Suivi RH (statuts « créé » ou « modifié ») et leurs jours sont déjà comptés dans le solde, comme dans Suivi RH. La RH tranche : congé pris (approuvé, rien n'est recompté) ou jamais pris (rejeté : les jours comptés sont restitués). Rien n'est automatique.",
     "empty": "Aucun agent à noter.",
     "avancement": "Avancement",
     "continue": "Continuer"
@@ -1085,9 +1085,9 @@
     "negatives": "Soldes négatifs {y}",
     "toRegularize": "À régulariser",
     "toVerify": "Soldes à vérifier",
-    "byYear": "Jours approuvés et jours décomptés, par année",
-    "approvedDays": "Jours approuvés",
-    "takenDays": "Jours décomptés (solde)",
+    "byYear": "Jours imputés aux années et jours « pris » des soldes",
+    "imputedDays": "Jours imputés (congés)",
+    "takenDays": "Jours « pris » (soldes)",
     "diff": "Écart",
     "negTitle": "Soldes négatifs {y} à revoir",
     "noNeg": "Aucun solde négatif.",
@@ -1131,6 +1131,7 @@
     "mineTitle": "Mes congés par année",
     "byYearTitle": "Congés par année",
     "reserved2": "Réservé",
-    "byYearNote": "Reste = droit + report − pris − réservé. Le droit et le report suivent des règles à valider par la RH. « Réservé » : demandes en cours dont la période n'est pas passée. « Reconstitué » : jours pris recalculés à partir des congés approuvés, en cours de vérification par la RH."
+    "byYearNote": "Reste de l'année = droit + report − jours imputés à cette année − réservé, comme dans Suivi RH (un congé consomme d'abord le reste de l'année précédente). Le droit et le report suivent des règles à valider par la RH. « Réservé » : demandes en cours dont la période n'est pas passée. « Reconstitué » : jours repris de Suivi RH, en cours de vérification par la RH.",
+    "alreadyCounted": "déjà compté"
   }
 }

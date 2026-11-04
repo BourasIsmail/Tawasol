@@ -91,7 +91,7 @@ public class ValidationService {
             """, new MapSqlParameterSource("p", d.personnelId())));
         if ("CONGE_ANNUEL".equals(d.typeCode()) && d.dateDebut() != null) {
             var s = soldes.get(d.personnelId(), d.dateDebut().getYear(), d.id());
-            out.put("solde", Map.of("annee", s.annee(), "disponible", s.disponible(), "suffisant", d.nbJours() == null || s.disponible().compareTo(d.nbJours()) >= 0));
+            out.put("solde", Map.of("annee", s.annee(), "disponible", s.utilisable(), "suffisant", d.nbJours() == null || s.utilisable().compareTo(d.nbJours()) >= 0));
         }
         out.put("equipe", d.dateDebut() == null ? List.of() : equipeAbsente(u, d));
         out.put("historique", demandes.historique(id));

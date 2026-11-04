@@ -10,7 +10,7 @@ import { CongesTabs } from '@/components/CongesTabs';
 import { Card, ErrorBox, Field, Loading, Page, WebOnly } from '@/components/ui';
 
 interface Neg { personnelId: string; matricule: string; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string; annee: number; droit: number; reporte: number; pris: number; disponible: number; source: string; aVerifier: boolean | number }
-interface Ctl { parAnnee: { annee: number; joursApprouves: number; joursPris: number; ecart: number }[]; coherent: boolean; negatifsTotal: number; anneeNegatifs: number; negatifs: Neg[]; parSource: { source: string; n: number; aVerifier: number }[]; aRegulariser: number }
+interface Ctl { parAnnee: { annee: number; joursImputes: number; joursPris: number; ecart: number }[]; coherent: boolean; negatifsTotal: number; anneeNegatifs: number; negatifs: Neg[]; parSource: { source: string; n: number; aVerifier: number }[]; aRegulariser: number }
 interface Fiche { id: string; matricule: string; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string; categorieAgent?: string; solde: { annee: number; droit: number; pris: number; reporte: number; reserve: number; disponible: number; source: string; aVerifier: boolean } }
 
 /** Cohérence des soldes (approuvés = pris), soldes négatifs à revoir, correction agent par agent. */
@@ -51,8 +51,8 @@ export default function ControleSoldes() {
               <div className="stat"><span>{t('cg.toVerify')}</span><b>{d.parSource.reduce((a, s) => a + Number(s.aVerifier ?? 0), 0)}</b></div>
             </div>
             <Card title={t('cg.byYear')} flush>
-              <table className="tbl"><thead><tr><th>{t('cg.year')}</th><th>{t('cg.approvedDays')}</th><th>{t('cg.takenDays')}</th><th>{t('cg.diff')}</th></tr></thead>
-                <tbody>{d.parAnnee.map((a) => <tr key={a.annee}><td>{a.annee}</td><td className="mono">{a.joursApprouves}</td><td className="mono">{a.joursPris}</td><td className="mono" style={{ color: Number(a.ecart) === 0 ? undefined : 'var(--bad)' }}>{a.ecart}</td></tr>)}</tbody></table>
+              <table className="tbl"><thead><tr><th>{t('cg.year')}</th><th>{t('cg.imputedDays')}</th><th>{t('cg.takenDays')}</th><th>{t('cg.diff')}</th></tr></thead>
+                <tbody>{d.parAnnee.map((a) => <tr key={a.annee}><td>{a.annee}</td><td className="mono">{a.joursImputes}</td><td className="mono">{a.joursPris}</td><td className="mono" style={{ color: Number(a.ecart) === 0 ? undefined : 'var(--bad)' }}>{a.ecart}</td></tr>)}</tbody></table>
             </Card>
             <Card title={t('cg.negTitle', { y: d.anneeNegatifs })} flush>
               {d.negatifs.length === 0 ? <p className="muted" style={{ padding: 16, margin: 0 }}>{t('cg.noNeg')}</p> : (

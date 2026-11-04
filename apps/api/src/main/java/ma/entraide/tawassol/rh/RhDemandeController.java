@@ -86,7 +86,7 @@ public class RhDemandeController {
         out.put("agent", jdbc.queryForMap("SELECT p.id, p.matricule, p.nom_fr AS nomFr, p.prenom_fr AS prenomFr, p.nom_ar AS nomAr, p.prenom_ar AS prenomAr, g.libelle_fr AS gradeFr, s.nom_fr AS structureFr, s.nom_ar AS structureAr FROM personnel p JOIN structure s ON s.id = p.structure_id LEFT JOIN grade g ON g.id = p.grade_id WHERE p.id = :p", new MapSqlParameterSource("p", d.personnelId())));
         if ("CONGE_ANNUEL".equals(d.typeCode()) && d.dateDebut() != null) {
             var s = soldes.get(d.personnelId(), d.dateDebut().getYear(), d.id());
-            out.put("solde", Map.of("annee", s.annee(), "disponible", s.disponible(), "suffisant", d.nbJours() == null || s.disponible().compareTo(d.nbJours()) >= 0));
+            out.put("solde", Map.of("annee", s.annee(), "disponible", s.utilisable(), "suffisant", d.nbJours() == null || s.utilisable().compareTo(d.nbJours()) >= 0));
         }
         out.put("historique", demandes.historique(id));
         out.put("piecesJointes", demandes.pieces(id));
@@ -119,7 +119,7 @@ public class RhDemandeController {
         jdbc.update("UPDATE demande SET statut = :s, traite_par = :u, date_traitement = :t, commentaire_rh = :c WHERE id = :id", new MapSqlParameterSource("s", cible).addValue("u", u.userId()).addValue("t", now).addValue("c", commentaire).addValue("id", id));
         demandes.addHistorique(id, u.userId(), d.statut(), cible, commentaire, now);
         if (approuver && "CONGE_ANNUEL".equals(d.typeCode()) && d.nbJours() != null && d.dateDebut() != null) {
-            soldes.deduire(d.personnelId(), d.dateDebut().getYear(), d.nbJours());
+            soldes.imputer(id, d.personnelId(), d.dateDebut().getYear(), d.nbJours());
         }
         audit.record(u.userId(), approuver ? "DEMANDE_APPROUVEE" : "DEMANDE_REJETEE_RH", "demande", id, null, null);
         notifs.notifierAgent(d.personnelId(), approuver ? "DEMANDE_APPROUVEE" : "DEMANDE_REJETEE", approuver ? "Votre demande est approuvée" : "Votre demande est rejetée",

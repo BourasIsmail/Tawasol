@@ -81,7 +81,7 @@ public class DemandeController {
         int n = jours.compter(debut, fin);
         var solde = soldes.get(u.personnelId(), debut.getYear(), null);
         Map<String, Object> out = new java.util.LinkedHashMap<>();
-        out.put("jours", n); out.put("soldeAvant", solde.disponible()); out.put("soldeApres", solde.disponible().subtract(BigDecimal.valueOf(n)));
+        out.put("jours", n); out.put("soldeAvant", solde.utilisable()); out.put("soldeApres", solde.utilisable().subtract(BigDecimal.valueOf(n)));
         out.put("chevauchement", repo.chevauche(u.personnelId(), "", debut, fin));
         return out;
     }

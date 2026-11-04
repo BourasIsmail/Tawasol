@@ -618,6 +618,7 @@ public class LegacyMigrator {
             donnees.put("numeroLegacy", r.get("numero_demande")); donnees.put("dateDemande", r.get("date_demande") == null ? null : r.get("date_demande").toString());
             donnees.put("lieu", r.get("lieu_conge")); donnees.put("articleSpecial", r.get("article_special")); donnees.put("langueDecision", r.get("langue_decision"));
             donnees.put("joursAnneeCourante", r.get("nombre_jours_annee_courante")); donnees.put("joursAnneePrecedente", r.get("nombre_jours_annee_precedente"));
+            donnees.put("anneeCourante", r.get("annee_courante_id")); donnees.put("anneePrecedente", r.get("annee_precedente_id"));
             donnees.put("remplacantId", r.get("remplacant_id") == null ? null : personnelDe(lng(r.get("remplacant_id"))));
             String json; try { json = om.writeValueAsString(donnees); } catch (Exception e) { json = "{}"; }
             String objet = tronque(libelle.getOrDefault(r.get("type_id") == null ? -1L : lng(r.get("type_id")), "Congé"), 250);
@@ -631,24 +632,60 @@ public class LegacyMigrator {
             if ("approuvee".equals(statut) && "CONGE_ANNUEL".equals(typeCode) && debut != null && r.get("deleted_at") == null)
                 prisParAgent.computeIfAbsent(pers, k -> new TreeMap<>()).merge(debut.toLocalDate().getYear(), jours, BigDecimal::add);
         }
-        // Les droits annuels ne sont pas dans Suivi RH : le droit suit le paramètre (à valider). Les jours pris sont reconstitués à partir des
-        // congés annuels approuvés (rejouable : la valeur est recalculée, jamais ajoutée) et marqués « à vérifier » ; une ligne saisie ou officielle n'est jamais écrasée.
-        dst.update(SQL_SOLDES_RECONSTITUES);
+        imputerCongesHerites(statuts, types, typeId);
+        // Suivi RH ne contient pas le droit annuel : il suit le paramètre (à valider). Les jours imputés à chaque année viennent des congés (compteurs
+        // « année courante » et « année précédente ») ; le solde est reconstitué à partir d'eux, de façon rejouable, et marqué « à vérifier ».
+        for (String sql : SQL_SOLDES_RECONSTITUES) dst.update(sql);
         long agents = prisParAgent.size();
         anomalie("SOLDES_A_VERIFIER", "conges", "*", agents + " agents ont des jours de congé annuel reconstitués à partir des demandes approuvées : à vérifier par la RH (solde officiel de bascule à charger si disponible)");
     }
 
-    /** Écriture rejouable des soldes reconstitués : pris = somme des congés annuels approuvés de l'année ; droit et report restent aux paramètres. */
-    public static final String SQL_SOLDES_RECONSTITUES = """
+    /**
+     * Soldes reconstitués à partir des imputations. Rejouable : « pris » est recalculé (jamais additionné) ; une ligne saisie ou officielle n'est jamais modifiée ;
+     * une ligne reconstituée sans plus aucune imputation retombe à 0.
+     */
+    public static final String[] SQL_SOLDES_RECONSTITUES = {"""
             INSERT INTO solde_conge (id, personnel_id, annee, droit, pris, reporte, source, a_verifier)
-            SELECT UUID(), d.personnel_id, YEAR(d.date_debut), 0, SUM(d.nb_jours), 0, 'reconstitue', 1
-              FROM demande d JOIN type_demande t ON t.id = d.type_demande_id
-             WHERE t.code = 'CONGE_ANNUEL' AND d.statut = 'approuvee' AND d.date_debut IS NOT NULL AND d.nb_jours IS NOT NULL
-             GROUP BY d.personnel_id, YEAR(d.date_debut)
+            SELECT UUID(), d.personnel_id, ci.annee, 0, SUM(ci.jours), 0, 'reconstitue', 1
+              FROM conge_imputation ci JOIN demande d ON d.id = ci.demande_id
+             GROUP BY d.personnel_id, ci.annee
             ON DUPLICATE KEY UPDATE pris = IF(source IN ('reconstitue','systeme'), VALUES(pris), pris),
                                     a_verifier = IF(source IN ('reconstitue','systeme'), 1, a_verifier),
                                     source = IF(source = 'systeme', 'reconstitue', source)
-            """;
+            """, """
+            UPDATE solde_conge s SET s.pris = 0
+             WHERE s.source = 'reconstitue'
+               AND NOT EXISTS (SELECT 1 FROM conge_imputation ci JOIN demande d ON d.id = ci.demande_id WHERE d.personnel_id = s.personnel_id AND ci.annee = s.annee)
+            """};
+
+    /**
+     * Imputation des congés annuels de Suivi RH sur les années de solde : jours « année courante » sur l'année courante, jours « année précédente » sur l'année précédente.
+     * Comptent : créé, modifié et validé (Suivi RH les compte tous dans le solde) ; ne comptent pas : annulé et supprimé. Rejouable (efface puis réécrit).
+     */
+    private void imputerCongesHerites(Map<Long, String> statuts, Map<Long, String> types, Map<String, String> typeId) {
+        Map<Long, Integer> annees = new HashMap<>();
+        for (Map<String, Object> r : src.queryForList("SELECT id, annee FROM annees")) { int a = ((Number) r.get("annee")).intValue(); annees.put(lng(r.get("id")), a < 100 ? 2000 + a : a); }
+        Map<Long, String> demandeDe = new HashMap<>();
+        dst.query("SELECT id_legacy, id FROM demande WHERE source_legacy = 'conge'", rs -> { demandeDe.put(rs.getLong(1), rs.getString(2)); });
+        int ecrits = 0;
+        for (Map<String, Object> r : src.queryForList("SELECT id, type_id, status_id, annee_courante_id, nombre_jours_annee_courante, annee_precedente_id, nombre_jours_annee_precedente, deleted_at FROM conges ORDER BY id")) {
+            long id = lng(r.get("id"));
+            String cible = demandeDe.get(id);
+            if (cible == null) continue;
+            dst.update("DELETE FROM conge_imputation WHERE demande_id = ?", cible);
+            if (!"CONGE_ANNUEL".equals(TYPE_CONGE.get(types.get(r.get("type_id") == null ? -1L : lng(r.get("type_id")))))) continue;
+            if (r.get("deleted_at") != null || "cancelled".equals(statuts.get(r.get("status_id") == null ? -1L : lng(r.get("status_id"))))) continue;
+            for (String[] c : new String[][]{{"annee_courante_id", "nombre_jours_annee_courante"}, {"annee_precedente_id", "nombre_jours_annee_precedente"}}) {
+                BigDecimal jours = bd(r.get(c[1]));
+                if (jours.signum() <= 0) continue;
+                Integer annee = r.get(c[0]) == null ? null : annees.get(lng(r.get(c[0])));
+                if (annee == null) { anomalie("ANNEE_CONGE_INCONNUE", "conges", id, "Année de solde absente ou inconnue : jours non imputés"); continue; }
+                dst.update("INSERT INTO conge_imputation (demande_id, annee, jours) VALUES (?,?,?) ON DUPLICATE KEY UPDATE jours = jours + VALUES(jours)", cible, annee, jours);
+                ecrits++;
+            }
+        }
+        anomalie("CONGES_IMPUTES", "conges", "*", ecrits + " imputations de jours sur les années de solde reprises de Suivi RH (créé, modifié et validé comptent ; annulé non)");
+    }
 
     private Date dateValide(Object o) {
         if (o == null) return null;

@@ -146,8 +146,8 @@ public class DemandeService {
                 switch (row.typeCode()) {
                     case "CONGE_ANNUEL" -> {
                         var solde = soldes.get(row.personnelId(), row.dateDebut().getYear(), row.id());
-                        if (solde.disponible().compareTo(BigDecimal.valueOf(n)) < 0) {
-                            throw unprocessable("INSUFFICIENT_BALANCE", "Solde insuffisant : " + solde.disponible() + " jour(s) disponible(s) pour " + n + " demandé(s)");
+                        if (solde.utilisable().compareTo(BigDecimal.valueOf(n)) < 0) {
+                            throw unprocessable("INSUFFICIENT_BALANCE", "Solde insuffisant : " + solde.utilisable() + " jour(s) disponible(s) pour " + n + " demandé(s)");
                         }
                     }
                     case "CONGE_MALADIE" -> { if (pieces < 1) throw unprocessable("ATTACHMENT_REQUIRED", "Le certificat médical est obligatoire"); }

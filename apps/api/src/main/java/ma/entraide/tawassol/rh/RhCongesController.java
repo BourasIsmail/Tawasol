@@ -57,7 +57,7 @@ public class RhCongesController {
         String from = " FROM demande d JOIN type_demande t ON t.id = d.type_demande_id JOIN personnel p ON p.id = d.personnel_id WHERE " + A_REGULARISER + " AND (p.matricule LIKE ? OR p.nom_fr LIKE ? OR p.prenom_fr LIKE ?)";
         Long total = jdbc.queryForObject("SELECT COUNT(*)" + from, Long.class, today, like, like, like);
         List<Map<String, Object>> rows = jdbc.queryForList("SELECT d.id, d.numero, t.code AS typeCode, t.libelle AS typeLibelle, d.statut, d.date_debut AS dateDebut, d.date_fin AS dateFin, d.nb_jours AS nbJours, "
-                + "p.matricule, p.nom_fr AS nomFr, p.prenom_fr AS prenomFr, p.nom_ar AS nomAr, p.prenom_ar AS prenomAr, (d.id_legacy IS NOT NULL) AS herite" + from
+                + "p.matricule, p.nom_fr AS nomFr, p.prenom_fr AS prenomFr, p.nom_ar AS nomAr, p.prenom_ar AS prenomAr, (d.id_legacy IS NOT NULL) AS herite, EXISTS (SELECT 1 FROM conge_imputation ci WHERE ci.demande_id = d.id) AS dejaCompte" + from
                 + " ORDER BY d.date_debut DESC, d.id LIMIT ? OFFSET ?", today, like, like, like, size, (long) page * size);
         return Map.of("content", rows, "total", total == null ? 0 : total, "page", page, "size", size);
     }
@@ -85,7 +85,8 @@ public class RhCongesController {
             jdbc.update("UPDATE demande SET statut = ?, traite_par = ?, date_traitement = ?, commentaire_rh = ? WHERE id = ?", cible, u.userId(), now, "Régularisation RH : " + r.commentaire(), id);
             demandes.addHistorique(id, u.userId(), ancien, cible, "Régularisation RH (période passée) : " + r.commentaire(), now);
             if (approuver && "CONGE_ANNUEL".equals(d.get("code")) && d.get("nb_jours") != null && d.get("date_debut") != null)
-                soldes.deduire(personnelId, annee(d.get("date_debut")), (BigDecimal) d.get("nb_jours"));
+                soldes.imputer(id, personnelId, annee(d.get("date_debut")), (BigDecimal) d.get("nb_jours"));   // sans effet si les jours sont déjà comptés (congé repris de Suivi RH)
+            if (!approuver && "CONGE_ANNUEL".equals(d.get("code"))) soldes.liberer(id, personnelId);              // « jamais pris » : les jours comptés sont restitués
             audit.record(u.userId(), "CONGE_REGULARISE", "demande", id, "{\"statut\":\"" + ancien + "\"}", "{\"statut\":\"" + cible + "\"}");
             traitees++;
         }
@@ -105,8 +106,7 @@ public class RhCongesController {
         LocalDateTime now = LocalDateTime.now(clock);
         jdbc.update("UPDATE demande SET statut = 'annulee', traite_par = ?, date_traitement = ?, commentaire_rh = ? WHERE id = ?", u.userId(), now, a.commentaire(), id);
         demandes.addHistorique(id, u.userId(), "approuvee", "annulee", a.commentaire(), now);
-        if ("CONGE_ANNUEL".equals(d.get("code")) && d.get("nb_jours") != null && d.get("date_debut") != null)
-            soldes.restituer((String) d.get("personnel_id"), annee(d.get("date_debut")), (BigDecimal) d.get("nb_jours"));
+        if ("CONGE_ANNUEL".equals(d.get("code"))) soldes.liberer(id, (String) d.get("personnel_id"));
         audit.record(u.userId(), "CONGE_APPROBATION_ANNULEE", "demande", id, null, null);
         return Map.of("id", id, "statut", "annulee");
     }
@@ -117,16 +117,20 @@ public class RhCongesController {
     @GetMapping("/conges/controle")
     public Map<String, Object> controle(@RequestParam(required = false) Integer annee) {
         int anneeNeg = annee == null ? LocalDate.now(clock).getYear() : annee;
-        List<Map<String, Object>> annees = jdbc.queryForList("""
-                SELECT a.annee, COALESCE(a.jours, 0) AS joursApprouves, COALESCE(s.pris, 0) AS joursPris, COALESCE(a.jours, 0) - COALESCE(s.pris, 0) AS ecart
-                FROM (SELECT YEAR(d.date_debut) AS annee, SUM(d.nb_jours) AS jours FROM demande d JOIN type_demande t ON t.id = d.type_demande_id
-                       WHERE t.code = 'CONGE_ANNUEL' AND d.statut = 'approuvee' AND d.date_debut IS NOT NULL GROUP BY YEAR(d.date_debut)) a
-                LEFT JOIN (SELECT annee, SUM(pris) AS pris FROM solde_conge GROUP BY annee) s ON s.annee = a.annee
-                UNION
-                SELECT s.annee, 0, s.pris, -s.pris FROM (SELECT annee, SUM(pris) AS pris FROM solde_conge GROUP BY annee) s
-                 WHERE s.annee NOT IN (SELECT YEAR(d.date_debut) FROM demande d JOIN type_demande t ON t.id = d.type_demande_id WHERE t.code = 'CONGE_ANNUEL' AND d.statut = 'approuvee' AND d.date_debut IS NOT NULL)
-                ORDER BY 1 DESC""");
-        boolean coherent = annees.stream().allMatch(m -> ((Number) m.get("ecart")).doubleValue() == 0.0);
+        // jours imputés aux années (congés comptés) contre jours « pris » des soldes tenus par le système ; les lignes saisies par la RH sont hors contrôle
+        java.util.Map<Integer, BigDecimal> imputes = soldes.imputesParAnnee();
+        java.util.Map<Integer, BigDecimal> pris = new java.util.TreeMap<>(java.util.Comparator.reverseOrder());
+        for (Map<String, Object> r : jdbc.queryForList("SELECT annee, SUM(pris) AS p FROM solde_conge WHERE source IN ('reconstitue','systeme') GROUP BY annee")) pris.put(((Number) r.get("annee")).intValue(), (BigDecimal) r.get("p"));
+        java.util.TreeSet<Integer> ys = new java.util.TreeSet<>(java.util.Comparator.reverseOrder());
+        ys.addAll(imputes.keySet()); ys.addAll(pris.keySet());
+        List<Map<String, Object>> annees = new java.util.ArrayList<>();
+        for (Integer y : ys) {
+            BigDecimal i = imputes.getOrDefault(y, BigDecimal.ZERO), p = pris.getOrDefault(y, BigDecimal.ZERO);
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("annee", y); m.put("joursImputes", i); m.put("joursPris", p); m.put("ecart", i.subtract(p));
+            annees.add(m);
+        }
+        boolean coherent = annees.stream().allMatch(m -> ((BigDecimal) m.get("ecart")).signum() == 0);
         // soldes négatifs de l'année : calculés avec les règles en vigueur (droit par catégorie, report), pas avec la valeur stockée
         List<Map<String, Object>> negatifs = new java.util.ArrayList<>();
         for (Map<String, Object> c : jdbc.queryForList("SELECT s.personnel_id AS pid, p.matricule, p.nom_fr AS nomFr, p.prenom_fr AS prenomFr, p.nom_ar AS nomAr, p.prenom_ar AS prenomAr FROM solde_conge s JOIN personnel p ON p.id = s.personnel_id WHERE s.annee = ? AND s.pris > 0", anneeNeg)) {

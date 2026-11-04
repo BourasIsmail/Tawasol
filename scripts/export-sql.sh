@@ -49,7 +49,7 @@ REF="role permission role_permission parametre bareme_indemnite bareme_repas jou
 dump 02_organisation.sql coordination_region delegation_province delegation_compteur structure grade responsabilite programme_mission programme_mission_plafond signataire_autorisation compteur_numero campagne_notation
 dump 03_personnel.sql personnel responsable_perimetre personnel_programme solde_conge suppleance historique_carriere
 { echo "SET NAMES utf8mb4; SET FOREIGN_KEY_CHECKS=0;"; "$DUMP" "${args[@]}" --where="login <> 'admin' AND login NOT LIKE 'test.%'" "$SRC" utilisateur; echo "SET FOREIGN_KEY_CHECKS=1;"; } >> "$OUT/03_personnel.sql"
-dump 04_demandes.sql demande demande_historique etape_validation piece_jointe document_officiel reclamation
+dump 04_demandes.sql demande demande_historique conge_imputation etape_validation piece_jointe document_officiel reclamation
 dump 05_missions.sql ordre_mission ordre_mission_historique
 dump 06_paie_notes.sql import_modele import_lot salaire salaire_ligne credit prime note_annuelle note_critere examen_grade
 { echo "SET NAMES utf8mb4; SET FOREIGN_KEY_CHECKS=0;"
@@ -72,8 +72,8 @@ FROM personnel p
 WHERE NOT EXISTS (SELECT 1 FROM utilisateur u WHERE u.personnel_id = p.id OR u.login = p.matricule);
 EOSQL
 
-# 09 : soldes de congé reconstitués. Rejouable : la valeur « pris » est recalculée (jamais additionnée) et une ligne saisie ou officielle n'est jamais écrasée.
-# Même requête que LegacyMigrator.SQL_SOLDES_RECONSTITUES. Le droit annuel et le report suivent les paramètres (à valider), pas la valeur stockée.
+# 09 : soldes de congé reconstitués à partir des imputations (jours pris sur chaque année, comme dans Suivi RH). Rejouable : « pris » est recalculé (jamais additionné) et une ligne saisie ou officielle n'est jamais écrasée.
+# Mêmes requêtes que LegacyMigrator.SQL_SOLDES_RECONSTITUES. Le droit annuel et le report suivent les paramètres (à valider), pas la valeur stockée.
 cat > "$OUT/09_soldes_conge.sql" <<'EOSQL'
 SET NAMES utf8mb4;
 INSERT IGNORE INTO parametre (cle, valeur, date_effet, reference_texte, statut_validation) VALUES
@@ -82,13 +82,15 @@ INSERT IGNORE INTO parametre (cle, valeur, date_effet, reference_texte, statut_v
 UPDATE parametre SET reference_texte = 'Valeur d''exemple (~22 jours ouvrables) : à valider par la RH et le juridique, y compris pour les non titulaires'
  WHERE cle = 'conge.annuel.droit_jours' AND reference_texte IS NULL;
 INSERT INTO solde_conge (id, personnel_id, annee, droit, pris, reporte, source, a_verifier)
-SELECT UUID(), d.personnel_id, YEAR(d.date_debut), 0, SUM(d.nb_jours), 0, 'reconstitue', 1
-  FROM demande d JOIN type_demande t ON t.id = d.type_demande_id
- WHERE t.code = 'CONGE_ANNUEL' AND d.statut = 'approuvee' AND d.date_debut IS NOT NULL AND d.nb_jours IS NOT NULL
- GROUP BY d.personnel_id, YEAR(d.date_debut)
+SELECT UUID(), d.personnel_id, ci.annee, 0, SUM(ci.jours), 0, 'reconstitue', 1
+  FROM conge_imputation ci JOIN demande d ON d.id = ci.demande_id
+ GROUP BY d.personnel_id, ci.annee
 ON DUPLICATE KEY UPDATE pris = IF(source IN ('reconstitue','systeme'), VALUES(pris), pris),
                         a_verifier = IF(source IN ('reconstitue','systeme'), 1, a_verifier),
                         source = IF(source = 'systeme', 'reconstitue', source);
+UPDATE solde_conge s SET s.pris = 0
+ WHERE s.source = 'reconstitue'
+   AND NOT EXISTS (SELECT 1 FROM conge_imputation ci JOIN demande d ON d.id = ci.demande_id WHERE d.personnel_id = s.personnel_id AND ci.annee = s.annee);
 EOSQL
 
 cat > "$OUT/charger.sh" <<'EOS'
@@ -109,3 +111,12 @@ ls -la "$OUT"
 { echo "-- TAWASSOL : données seules (INSERT). A charger après le premier démarrage de l'API, dans la base créée par Flyway."
   echo "-- Contient des données personnelles : ne pas commiter. Mot de passe initial des comptes agents : password"
   cat "$OUT"/0[1-9]_*.sql; } > "$OUT/tawassol_data.sql"
+
+# Fichier delta pour une base DÉJÀ chargée (après le démarrage de la version qui applique la migration V20) :
+# écrit les imputations des congés repris de Suivi RH puis recalcule les soldes. Rejouable.
+{ echo "-- TAWASSOL : imputations des congés repris de Suivi RH + soldes reconstitués. A charger sur une base déjà chargée, après la migration V20. Rejouable."
+  echo "SET NAMES utf8mb4; SET FOREIGN_KEY_CHECKS=0;"
+  echo "DELETE FROM conge_imputation WHERE demande_id IN (SELECT id FROM demande WHERE source_legacy = 'conge');"
+  "$DUMP" "${args[@]}" "$SRC" conge_imputation
+  echo "SET FOREIGN_KEY_CHECKS=1;"
+  cat "$OUT/09_soldes_conge.sql"; } > "$OUT/maj_soldes_conge.sql"
