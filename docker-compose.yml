@@ -61,7 +61,8 @@ services:
     depends_on:
       api: { condition: service_healthy }
     ports:
-      - "3000:3000"
+      # port publié par la VM : 3000 par défaut, WEB_PORT=80 dans .env pour servir l'application sur le port 80
+      - "${WEB_PORT:-3000}:3000"
 
 volumes:
   mysql_data:
