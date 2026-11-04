@@ -12,6 +12,10 @@ Portail RH de l'Entraide Nationale (Maroc) : dossier agent, demandes administrat
 | `docs/` | `ARCHITECTURE.md`, `SECURITE.md`, `CONFORMITE.md`, `HYPOTHESES.md` |
 | `scripts/gen-demo.py` | Génère le jeu de démonstration (80 agents) |
 
+## Charger les données par scripts SQL
+
+`scripts/export-sql.sh <base_source> <dossier> <utilisateur> <mot_de_passe>` produit des fichiers `00_…` à `07_…` et `charger.sh` : schéma, référentiels puis données, à charger dans une base **vide** (`MYSQL_PWD=… ./charger.sh HOTE BASE UTILISATEUR`). L'API démarre ensuite sans rejouer les migrations (l'historique Flyway est inclus) et recrée le compte admin. Les fichiers contiennent des données personnelles : ne jamais les commiter.
+
 ## Base de données externe (Docker)
 
 `docker compose up --build` ne démarre plus MySQL : l'API se connecte à la base indiquée dans `.env` (`DB_URL`, `DB_USER`, `DB_PASSWORD`, voir `.env.example`). Le mot de passe ne va jamais dans git. **Au premier démarrage, Flyway applique les migrations V1 à V18 sur cette base** : à ne faire que sur une base dont le propriétaire l'a validé par écrit. Pour une base locale de secours : `docker compose --profile localdb up` avec `DB_URL` visant `mysql:3306`.
