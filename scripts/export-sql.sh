@@ -47,8 +47,11 @@ REF="role permission role_permission parametre bareme_indemnite bareme_repas jou
   "$DUMP" "${args[@]}" "$SRC" $REF
   echo "SET FOREIGN_KEY_CHECKS=1;"; } > "$OUT/01_reference.sql"
 dump 02_organisation.sql coordination_region delegation_province delegation_compteur structure grade responsabilite programme_mission programme_mission_plafond signataire_autorisation compteur_numero campagne_notation
-dump 03_personnel.sql personnel responsable_perimetre personnel_programme solde_conge suppleance historique_carriere
+dump 03_personnel.sql personnel personnel_programme solde_conge suppleance historique_carriere
 { echo "SET NAMES utf8mb4; SET FOREIGN_KEY_CHECKS=0;"; "$DUMP" "${args[@]}" --where="login <> 'admin' AND login NOT LIKE 'test.%'" "$SRC" utilisateur; echo "SET FOREIGN_KEY_CHECKS=1;"; } >> "$OUT/03_personnel.sql"
+# Les désignations de responsables créées pour les comptes de test (test.responsable, test.delegue, test.coordinateur) ne sont jamais exportées :
+# elles donneraient à de vrais agents l'autorité d'une structure, d'une délégation ou d'une coordination. Les responsables réels sont désignés dans l'application.
+{ echo "SET NAMES utf8mb4; SET FOREIGN_KEY_CHECKS=0;"; "$DUMP" "${args[@]}" --where="personnel_id NOT IN (SELECT personnel_id FROM utilisateur WHERE login LIKE 'test.%' AND personnel_id IS NOT NULL)" "$SRC" responsable_perimetre; echo "SET FOREIGN_KEY_CHECKS=1;"; } >> "$OUT/03_personnel.sql"
 dump 04_demandes.sql demande demande_historique conge_imputation etape_validation piece_jointe document_officiel reclamation
 dump 05_missions.sql ordre_mission ordre_mission_historique
 dump 06_paie_notes.sql import_modele import_lot salaire salaire_ligne credit prime note_annuelle note_critere examen_grade
