@@ -58,6 +58,9 @@ public class MissionController {
     @GetMapping("/{id}")
     public MissionDto get(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String id) { return service.get(u, id); }
 
+    @GetMapping("/{id}/edition")
+    public java.util.Map<String, Object> edition(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String id) { return service.pourEdition(u, id); }
+
     @PutMapping("/{id}")
     public MissionDto update(@AuthenticationPrincipal AuthenticatedUser u, @PathVariable String id, @Valid @RequestBody MissionRequest q) { return service.modifier(u, id, q); }
 

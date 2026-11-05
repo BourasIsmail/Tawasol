@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, use } from 'react';
+import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -61,6 +62,7 @@ function Detail({ id }: { id: string }) {
           )}
           {(submit.error || cancel.error) && <ErrorBox error={submit.error ?? cancel.error} />}
           <div className="acts">
+            {d.statut === 'brouillon' && ['CONGE_ANNUEL', 'CONGE_MALADIE', 'CONGE_EXCEPTION', 'ATTESTATION', 'FORMATION'].includes(d.typeCode) && <Link className="btn" href={`/${locale}/demandes/nouvelle?id=${id}`}><Icon name="pencil" />{t('dem.editDraft')}</Link>}
             {d.statut === 'brouillon' && <button type="button" className="btn pri" disabled={submit.isPending} onClick={() => submit.mutate()}>{t('dem.submit')}</button>}
             {d.statut === 'brouillon' && <button type="button" className="btn bad" onClick={() => del.mutate()}>{t('dem.deleteDraft')}</button>}
             {cancellable && d.statut !== 'brouillon' && <button type="button" className="btn bad" disabled={cancel.isPending} onClick={() => cancel.mutate()}>{t('dem.cancel')}</button>}

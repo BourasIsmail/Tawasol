@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/client';
 import { fmtMoney } from '@/lib/format';
 import { Icon } from '@/components/Icon';
@@ -15,10 +15,25 @@ interface Droits { saisirPerimetre: boolean }
 interface Agent { id: string; nomFr: string; prenomFr: string; matricule: string }
 
 export default function NouvelleMission() {
+  return <Suspense fallback={<Loading />}><Form /></Suspense>;
+}
+
+function Form() {
   const t = useTranslations();
   const locale = useLocale();
   const router = useRouter();
+  const editId = useSearchParams().get('id');
+  const qc = useQueryClient();
   const [v, setV] = useState<Record<string, string>>({ remboursable: 'oui' });
+  // brouillon à modifier : le formulaire est prérempli avec ses valeurs
+  const edition = useQuery({ queryKey: ['mission-edit', editId], queryFn: () => api<Record<string, unknown>>(`missions/${editId}/edition`), enabled: !!editId });
+  useEffect(() => {
+    const e = edition.data;
+    if (!e) return;
+    const s = (x: unknown) => (x == null ? '' : String(x));
+    setV({ objet: s(e.objet), depart: s(e.departDelegationId), arrival: s(e.arrivalDelegationId), d1: s(e.dateDepart).slice(0, 16), d2: s(e.dateRetour).slice(0, 16), transport: s(e.moyenTransportId), programme: s(e.programmeId),
+      remboursable: e.remboursable === false ? 'non' : 'oui', frais: Number(e.fraisTransport) > 0 ? s(e.fraisTransport) : '', vnom: s(e.vehiculeNom), immat: s(e.vehiculeImmatriculation), puissance: s(e.puissanceFiscaleId), km: Number(e.distanceKm) > 0 ? s(e.distanceKm) : '', trajets: s(e.nombreTrajets) });
+  }, [edition.data]);
   const [pour, setPour] = useState<'moi' | 'agent'>('moi');
   const set = (k: string) => (e: { target: { value: string } }) => setV({ ...v, [k]: e.target.value });
   const name = (r: Ref) => (locale === 'ar' ? r.nomAr ?? r.libelleAr : r.nomFr ?? r.libelleFr) ?? '';
@@ -39,17 +54,19 @@ export default function NouvelleMission() {
   useEffect(() => { if (v.d1 && v.d2 && (pour === 'moi' || v.agent)) { const h = setTimeout(() => sim.mutate(), 400); return () => clearTimeout(h); } }, [v.d1, v.d2, v.transport, v.frais, v.puissance, v.km, v.trajets, v.remboursable, v.agent, pour]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = useMutation({
     mutationFn: async (submit: boolean) => {
-      const { id } = await api<{ id: string }>('missions', { method: 'POST', json: body() });
+      let id = editId;
+      if (editId) await api(`missions/${editId}`, { method: 'PUT', json: body() });
+      else id = (await api<{ id: string }>('missions', { method: 'POST', json: body() })).id;
       if (submit) await api(`missions/${id}/soumettre`, { method: 'POST' });
       return id;
     },
-    onSuccess: (id) => router.push(`/${locale}/deplacements/${id}`),
+    onSuccess: (id) => { qc.invalidateQueries({ queryKey: ['mission'] }); qc.invalidateQueries({ queryKey: ['missions'] }); router.push(`/${locale}/deplacements/${id}`); },
   });
   const ready = v.objet && v.arrival && v.d1 && (pour === 'moi' || v.agent);
   const refs = (r: typeof deleg) => r.data?.map((d) => <option key={d.id} value={d.id}>{name(d)}</option>);
   if (deleg.isLoading || transport.isLoading) return <Loading />;
   return (
-    <Page title={t('mis.formTitle')} sub={t('mis.formSub')}>
+    <Page title={editId ? t('mis.editDraft') : t('mis.formTitle')} sub={t('mis.formSub')}>
         <Card>
           {droits.data?.saisirPerimetre && (
             <div className="chips" role="group">

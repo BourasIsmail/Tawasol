@@ -10,7 +10,7 @@ import { Card, Empty, ErrorBox, Loading, Page, Pill, Row } from '@/components/ui
 
 interface Item { id: string; numero?: string; typeCode: string; typeLibelle: string; statut: string; dateDebut?: string; dateFin?: string; nbJours?: number; ancienneteJours: number; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string }
 const TABS = ['soumise', 'validee_responsable', 'rejetee_responsable'] as const;
-const FAMILLES: Record<string, string[] | null> = { all: null, conge: ['CONGE_ANNUEL', 'CONGE_MALADIE', 'CONGE_EXCEPTION', 'CONGE_PERMISSION_ABSENCE', 'CONGE_MATERNITE', 'CONGE_SANS_SOLDE', 'CONGE_ACCIDENT_TRAVAIL'], att: ['ATTESTATION'], avance: ['AVANCE_SALAIRE'], form: ['FORMATION'], mis: ['ORDRE_MISSION'] };
+const FAMILLES: Record<string, string[] | null> = { all: null, conge: ['CONGE_ANNUEL', 'CONGE_MALADIE', 'CONGE_EXCEPTION', 'CONGE_PERMISSION_ABSENCE', 'CONGE_MATERNITE', 'CONGE_SANS_SOLDE', 'CONGE_ACCIDENT_TRAVAIL'], att: ['ATTESTATION'], form: ['FORMATION'], mis: ['ORDRE_MISSION'] };
 
 export default function Validation() {
   const t = useTranslations();

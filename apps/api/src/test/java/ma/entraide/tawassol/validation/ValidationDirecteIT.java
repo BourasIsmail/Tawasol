@@ -99,4 +99,21 @@ class ValidationDirecteIT extends IntegrationTestBase {
             jdbc.update("UPDATE parametre SET valeur = '1' WHERE cle = 'validation.chaine.niveaux_max'");
         }
     }
+
+    @Test void leBrouillonDUneMissionSeRouvrePourModification() throws Exception {
+        Map<String, Object> b = new HashMap<>();
+        b.put("objet", "Mission à corriger"); b.put("arrivalDelegationId", dest); b.put("departDelegationId", deleg);
+        b.put("moyenTransportId", jdbc.queryForObject("SELECT id FROM moyen_transport WHERE code = 'voiture_de_service'", String.class));
+        b.put("dateDepart", "2027-03-10T08:00:00"); b.put("dateRetour", "2027-03-11T20:00:00");
+        String id = post("/api/v1/missions", tAgent, b, 201).get("id").asText();
+        var r = json.readTree(send(HttpMethod.GET, "/api/v1/missions/" + id + "/edition", tAgent, null).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals("Mission à corriger", r.get("objet").asText());
+        assertEquals(dest, r.get("arrivalDelegationId").asText(), "les identifiants sont rendus, pas les libellés");
+        assertEquals("2027-03-10T08:00", r.get("dateDepart").asText());
+        send(HttpMethod.GET, "/api/v1/missions/" + id + "/edition", tRh, null).andExpect(status().is4xxClientError());       // hors périmètre ou sans droit de saisie
+        b.put("objet", "Mission corrigée");
+        send(HttpMethod.PUT, "/api/v1/missions/" + id, tAgent, b).andExpect(status().isOk());
+        post("/api/v1/missions/" + id + "/soumettre", tAgent, null, 200);
+        send(HttpMethod.GET, "/api/v1/missions/" + id + "/edition", tAgent, null).andExpect(status().is4xxClientError());       // plus un brouillon
+    }
 }

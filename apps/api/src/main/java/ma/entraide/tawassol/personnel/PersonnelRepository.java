@@ -15,7 +15,7 @@ public class PersonnelRepository {
     private static final String SELECT = """
         SELECT p.id, p.matricule, p.nom_fr, p.prenom_fr, p.nom_ar, p.prenom_ar, g.libelle_fr AS grade_fr, g.libelle_ar AS grade_ar,
                p.structure_id, st.nom_fr AS structure_fr, st.nom_ar AS structure_ar, p.date_recrutement, p.email, p.photo,
-               p.echelon, p.echelle, p.date_echelon, p.est_actif, p.position_administrative, p.telephone
+               p.echelon, p.echelle, p.date_echelon, p.date_echelle, p.est_actif, p.position_administrative, p.telephone
           FROM personnel p JOIN structure st ON st.id = p.structure_id LEFT JOIN grade g ON g.id = p.grade_id
         """;
 
@@ -63,7 +63,7 @@ public class PersonnelRepository {
                 rs.getString("nom_ar"), rs.getString("prenom_ar"), rs.getString("grade_fr"), rs.getString("grade_ar"),
                 rs.getString("structure_id"), rs.getString("structure_fr"), rs.getString("structure_ar"),
                 rs.getObject("date_recrutement", java.time.LocalDate.class), rs.getString("email"), rs.getString("photo"),
-                rs.getString("echelon"), (Integer) rs.getObject("echelle"), rs.getObject("date_echelon", java.time.LocalDate.class),
+                rs.getString("echelon"), (Integer) rs.getObject("echelle"), rs.getObject("date_echelon", java.time.LocalDate.class), rs.getObject("date_echelle", java.time.LocalDate.class),
                 rs.getBoolean("est_actif"), rs.getString("position_administrative"), rs.getString("telephone"));
     }
 }

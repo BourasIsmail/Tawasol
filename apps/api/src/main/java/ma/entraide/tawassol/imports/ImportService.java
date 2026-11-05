@@ -50,7 +50,7 @@ public class ImportService {
     public record Resultat(Rapport rapport, List<Map<String, Object>> apercu) {}
 
     private static final Set<String> DECIMAUX = Set.of("salaire_net", "alloc_familiale", "retenue_mutuelle", "rappel", "montant_brut", "ir", "montant_net", "mensualite", "montant_global", "montant_restant");
-    private static final Set<String> DATES = Set.of("date_recrutement", "date_naissance", "date_echelon", "date_prime", "date_debut");
+    private static final Set<String> DATES = Set.of("date_recrutement", "date_naissance", "date_echelon", "date_echelle", "date_prime", "date_debut");
     private static final Set<String> ENTIERS = Set.of("nb_mois_restants", "echelle");
     private static final int MAX_ANOMALIES_RETOURNEES = 500;
 
@@ -262,7 +262,7 @@ public class ImportService {
         String matricule = String.valueOf(v.get("matricule"));
         PersonnelRhService.Input in = new PersonnelRhService.Input(matricule, s(v, "nom_fr"), s(v, "prenom_fr"), s(v, "nom_ar"), s(v, "prenom_ar"), (String) v.get("structureId"), (String) v.get("gradeId"),
                 (LocalDate) v.get("date_recrutement"), s(v, "email"), s(v, "telephone"), s(v, "cin"), s(v, "sexe"), s(v, "situation_familiale"), (LocalDate) v.get("date_naissance"), null,
-                s(v, "echelon"), (Integer) v.get("echelle"), (LocalDate) v.get("date_echelon"), "Import", null);
+                s(v, "echelon"), (Integer) v.get("echelle"), (LocalDate) v.get("date_echelon"), (LocalDate) v.get("date_echelle"), "Import", null);
         var existing = personnelRh.idByMatricule(matricule);
         if (existing.isPresent()) personnelRh.update(actor, existing.get(), in); else personnelRh.create(actor, in);
     }

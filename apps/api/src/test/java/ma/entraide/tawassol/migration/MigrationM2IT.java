@@ -246,7 +246,12 @@ class MigrationM2IT extends IntegrationTestBase {
         assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM import_lot WHERE numero LIKE 'REPRISE-S-%' AND statut = 'publie'", Integer.class));
         assertEquals(0, new java.math.BigDecimal("0.00").compareTo(jdbc.queryForObject("SELECT alloc_familiale FROM salaire WHERE annee = 2026 AND mois = 9", java.math.BigDecimal.class)));
         assertEquals("publie", jdbc.queryForObject("SELECT statut FROM salaire WHERE annee = 2026 AND mois = 8", String.class));
-        assertEquals("5", jdbc.queryForObject("SELECT echelon FROM personnel WHERE matricule = 'P9001'", String.class));
+        // « ech » = échelle (5), « echl » = échelon (6) du dernier bulletin, chacun avec sa date
+        assertEquals("6", jdbc.queryForObject("SELECT echelon FROM personnel WHERE matricule = 'P9001'", String.class));
+        assertEquals(5, jdbc.queryForObject("SELECT echelle FROM personnel WHERE matricule = 'P9001'", Integer.class));
+        assertEquals("2025-01-01", jdbc.queryForObject("SELECT date_echelle FROM personnel WHERE matricule = 'P9001'", String.class));
+        assertEquals("2025-01-01", jdbc.queryForObject("SELECT date_echelon FROM personnel WHERE matricule = 'P9001'", String.class));
+        assertEquals("6", jdbc.queryForObject("SELECT echelon FROM salaire WHERE annee = 2026 AND mois = 9", String.class), "le bulletin porte l'échelon, pas l'échelle");
         // notes : 17.5 et 17.50 ne font qu'une ; deux valeurs différentes = conflit signalé, la plus récente gardée ; note vide et matricule inconnu ignorés
         assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM note_annuelle", Integer.class));
         assertEquals(0, new java.math.BigDecimal("19").compareTo(jdbc.queryForObject("SELECT note FROM note_annuelle WHERE annee = 2025", java.math.BigDecimal.class)));

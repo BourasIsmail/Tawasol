@@ -10,7 +10,7 @@ import { Icon } from '@/components/Icon';
 import { Card, ErrorBox, Field, Loading, Page } from '@/components/ui';
 import { useMe } from '@/components/AppShell';
 
-interface Fiche { matricule: string; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string; gradeFr?: string; gradeAr?: string; structureFr: string; structureAr: string; echelon?: string; echelle?: number; dateEchelon?: string; dateRecrutement: string; email?: string }
+interface Fiche { matricule: string; nomFr: string; prenomFr: string; nomAr: string; prenomAr: string; gradeFr?: string; gradeAr?: string; structureFr: string; structureAr: string; echelon?: string; echelle?: number; dateEchelon?: string; dateEchelle?: string; dateRecrutement: string; email?: string }
 
 export default function FichePage() {
   const t = useTranslations();
@@ -25,8 +25,8 @@ export default function FichePage() {
   const ar = locale === 'ar';
   const rows: [string, string][] = [
     [t('fiche.matricule'), f.matricule], [t('fiche.nameFr'), `${f.nomFr} ${f.prenomFr}`], [t('fiche.nameAr'), `${f.nomAr} ${f.prenomAr}`],
-    [t('fiche.grade'), (ar ? f.gradeAr : f.gradeFr) ?? '—'], [t('fiche.scaleStep'), `${f.echelle ?? '—'} / ${f.echelon ?? '—'}`], [t('fiche.stepDate'), fmtDate(locale, f.dateEchelon)],
-    [t('fiche.hired'), fmtDate(locale, f.dateRecrutement)], [t('fiche.structure'), ar ? f.structureAr : f.structureFr], [t('fiche.email'), f.email ?? '—'],
+    [t('fiche.grade'), (ar ? f.gradeAr : f.gradeFr) ?? '—'], [t('fiche.scale'), f.echelle != null ? String(f.echelle) : '—'], [t('fiche.step'), f.echelon ?? '—'], [t('fiche.scaleDate'), fmtDate(locale, f.dateEchelle)], [t('fiche.stepDate'), fmtDate(locale, f.dateEchelon)],
+    [t('fiche.hired'), f.dateRecrutement ? fmtDate(locale, f.dateRecrutement) : t('fiche.notProvided')], [t('fiche.structure'), ar ? f.structureAr : f.structureFr], [t('fiche.email'), f.email ?? '—'],
   ];
   return (
     <Page title={t('fiche.title')} sub={t('fiche.intro')}>
@@ -35,7 +35,7 @@ export default function FichePage() {
           <div className="av" style={{ width: 56, height: 56, fontSize: 18 }} aria-hidden="true">{`${f.prenomFr[0] ?? ''}${f.nomFr[0] ?? ''}`}</div>
           <div><b style={{ fontSize: 17 }}>{ar ? `${f.prenomAr} ${f.nomAr}` : `${f.prenomFr} ${f.nomFr}`}</b><div className="muted mono" style={{ fontSize: 12 }}>{t('fiche.matricule')} {f.matricule}</div></div>
         </div>
-        <dl className="kv">{rows.filter(([k]) => k !== t('fiche.matricule')).map(([k, v]) => <div key={k}><dt>{k}</dt><dd className={k === t('fiche.stepDate') || k === t('fiche.hired') || k === t('fiche.email') ? 'mono' : undefined}>{v}</dd></div>)}</dl>
+        <dl className="kv">{rows.filter(([k]) => k !== t('fiche.matricule')).map(([k, v]) => <div key={k}><dt>{k}</dt><dd className={k === t('fiche.stepDate') || k === t('fiche.scaleDate') || (k === t('fiche.hired') && !!f.dateRecrutement) || k === t('fiche.email') ? 'mono' : undefined}>{v}</dd></div>)}</dl>
       </Card>
       {mode === 'idle' && (
         <div className="acts">

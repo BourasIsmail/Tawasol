@@ -17,7 +17,7 @@ public final class ImportSpec {
                 c("nom_ar", "Nom (AR)", true, "nomar"), c("prenom_ar", "Prénom (AR)", true, "prenomar"), c("structure_code", "Code structure", true, "structure", "codestructure"),
                 c("date_recrutement", "Date de recrutement", true, "recrutement", "daterec"), c("grade_code", "Code grade", false, "grade", "codegrade"), c("email", "E-mail", false, "mail", "courriel"),
                 c("telephone", "Téléphone", false, "tel"), c("cin", "CIN", false), c("sexe", "Sexe", false), c("date_naissance", "Date de naissance", false, "naissance"),
-                c("situation_familiale", "Situation familiale", false, "situation"), c("echelon", "Échelon", false), c("echelle", "Échelle", false), c("date_echelon", "Date d'échelon", false)));
+                c("situation_familiale", "Situation familiale", false, "situation"), c("echelon", "Échelon", false), c("echelle", "Échelle", false), c("date_echelon", "Date d'échelon", false), c("date_echelle", "Date d'échelle", false)));
         CHAMPS.put("salaire", List.of(c("matricule", "Matricule", true, "mat", "numero"), c("salaire_net", "Salaire net", true, "net", "netapayer", "salaire"),
                 c("alloc_familiale", "Allocations familiales", false, "allocfamiliale", "af", "allocations"), c("retenue_mutuelle", "Retenue mutuelle", false, "mutuelle"),
                 c("rappel", "Rappel", false), c("echelon", "Échelon", false)));

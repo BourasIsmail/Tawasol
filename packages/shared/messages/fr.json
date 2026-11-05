@@ -103,7 +103,11 @@
     "f_echelon": "Échelon",
     "f_structure": "Structure",
     "f_name": "Nom ou prénom",
-    "f_other": "Autre"
+    "f_other": "Autre",
+    "scale": "Échelle",
+    "step": "Échelon",
+    "scaleDate": "Date d'échelle",
+    "notProvided": "Non renseignée"
   },
   "dem": {
     "title": "Mes demandes",
@@ -163,7 +167,7 @@
     "cancel": "Annuler la demande",
     "cancelHint": "L'annulation reste possible tant que la demande n'est pas approuvée.",
     "deleteDraft": "Supprimer le brouillon",
-    "editDraft": "Modifier",
+    "editDraft": "Modifier le brouillon",
     "warnDebt": "La capacité d'endettement n'a pas pu être évaluée (aucun bulletin publié).",
     "by": "par {name}",
     "t_CONGE_PERMISSION_ABSENCE": "Permission d'absence",
@@ -186,7 +190,10 @@
     "noOverlap": "Aucun chevauchement détecté.",
     "overlap": "Chevauchement avec une autre absence.",
     "leaveNote": "Congé maladie : certificat médical obligatoire. Congé exceptionnel : motif et justificatif. Types, durées et pièces à valider avec la RH.",
-    "attachDrop": "Ajouter une pièce jointe · PDF, JPG ou PNG, 5 Mo maximum (paramétrable)"
+    "attachDrop": "Ajouter une pièce jointe · PDF, JPG ou PNG, 5 Mo maximum (paramétrable)",
+    "editDraftSub": "Le type de la demande ne peut pas changer. Enregistrez ou soumettez après vos modifications.",
+    "notEditableHere": "Ce type de demande ne se modifie pas ici.",
+    "alreadyAttached": "{n} pièce(s) déjà jointe(s)"
   },
   "pay": {
     "title": "Paie, primes, crédits",
@@ -581,7 +588,8 @@
     "noHistory": "Aucun événement de carrière.",
     "activeCount": "{n} agents actifs",
     "sheet": "Fiche",
-    "name": "Nom"
+    "name": "Nom",
+    "scaleDate": "Date d'échelle"
   },
   "rhimp": {
     "title": "Import Excel",
@@ -797,7 +805,8 @@
     "statPending": "En attente",
     "mine": "Mes missions",
     "toCheck": "Missions à contrôler",
-    "cToValidate": "À valider"
+    "cToValidate": "À valider",
+    "editDraft": "Modifier la mission (brouillon)"
   },
   "car": {
     "title": "Ma carrière",

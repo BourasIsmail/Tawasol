@@ -20,9 +20,9 @@ import org.springframework.web.bind.annotation.*;
 public class RhPersonnelController {
     public record PersonnelRequest(String matricule, String nomFr, String prenomFr, String nomAr, String prenomAr, String structureId, String gradeId, LocalDate dateRecrutement, String email,
                                    String telephone, String cin, String sexe, String situationFamiliale, LocalDate dateNaissance, String positionAdministrative, String echelon, Integer echelle,
-                                   LocalDate dateEchelon, String decisionRef, LocalDate dateEffet) {
+                                   LocalDate dateEchelon, LocalDate dateEchelle, String decisionRef, LocalDate dateEffet) {
         public PersonnelRhService.Input toInput() {
-            return new PersonnelRhService.Input(matricule, nomFr, prenomFr, nomAr, prenomAr, structureId, gradeId, dateRecrutement, email, telephone, cin, sexe, situationFamiliale, dateNaissance, positionAdministrative, echelon, echelle, dateEchelon, decisionRef, dateEffet);
+            return new PersonnelRhService.Input(matricule, nomFr, prenomFr, nomAr, prenomAr, structureId, gradeId, dateRecrutement, email, telephone, cin, sexe, situationFamiliale, dateNaissance, positionAdministrative, echelon, echelle, dateEchelon, dateEchelle, decisionRef, dateEffet);
         }
     }
     public record GradeRequest(Integer code, String libelleFr, String libelleAr, Integer echelle, Integer nbEchelons) {}

@@ -163,7 +163,6 @@ public class DemandeService {
                     throw unprocessable("INVALID_ATTESTATION_TYPE", "Type d'attestation attendu : travail ou salaire");
                 }
             }
-            case "AVANCE_SALAIRE" -> verifierAvance(row, donnees, avert);
             case "FORMATION" -> {
                 if (blank(String.valueOf(donnees.getOrDefault("intitule", "")).replace("null", ""))) throw unprocessable("TITLE_REQUIRED", "L'intitulé de la formation est obligatoire");
                 requireDates(row);
@@ -182,28 +181,6 @@ public class DemandeService {
             default -> { if (blank(row.description())) throw unprocessable("DESCRIPTION_REQUIRED", "La description est obligatoire"); }
         }
         return null;
-    }
-
-    private void verifierAvance(DemandeRow row, Map<String, Object> donnees, List<String> avert) {
-        BigDecimal montant;
-        try { montant = new BigDecimal(String.valueOf(donnees.get("montant"))); }
-        catch (NumberFormatException e) { throw unprocessable("INVALID_AMOUNT", "Montant invalide"); }
-        if (montant.signum() <= 0) throw unprocessable("INVALID_AMOUNT", "Le montant doit être positif");
-        LocalDate today = LocalDate.now(clock);
-        BigDecimal plafond = params.decimal("avance.plafond_mad", today, null);
-        if (plafond != null && montant.compareTo(plafond) > 0) {
-            throw unprocessable("ADVANCE_CEILING_EXCEEDED", "Le montant dépasse le plafond de " + plafond.toPlainString() + " MAD");
-        }
-        BigDecimal mensualites = jdbc.queryForObject("SELECT COALESCE(SUM(mensualite),0) FROM credit WHERE personnel_id = ? AND statut = 'publie' AND nb_mois_restants > 0", BigDecimal.class, row.personnelId());
-        List<BigDecimal> net = jdbc.queryForList("SELECT salaire_net FROM salaire WHERE personnel_id = ? AND statut = 'publie' ORDER BY annee DESC, mois DESC LIMIT 1", BigDecimal.class, row.personnelId());
-        if (net.isEmpty() || net.get(0).signum() == 0) {
-            avert.add("DEBT_CAPACITY_NOT_ASSESSED");
-            return;
-        }
-        BigDecimal max = params.decimal("avance.endettement_max_pct", today, null);
-        if (max != null && mensualites.multiply(BigDecimal.valueOf(100)).divide(net.get(0), 2, java.math.RoundingMode.HALF_UP).compareTo(max) > 0) {
-            throw unprocessable("DEBT_CAPACITY_EXCEEDED", "La capacité d'endettement est dépassée");
-        }
     }
 
     private void creerOrdreMission(DemandeRow row, Map<String, Object> d, LocalDateTime now) {

@@ -141,6 +141,28 @@ public class MissionService {
         return get(u, id);
     }
 
+    private static String iso(Object d) {
+        if (d == null) return null;
+        if (d instanceof Timestamp t) return t.toLocalDateTime().toString();
+        if (d instanceof LocalDateTime l) return l.toString();
+        return String.valueOf(d).replace(' ', 'T');
+    }
+
+    /** Valeurs d'un brouillon (identifiants compris) pour rouvrir le formulaire de saisie. */
+    public Map<String, Object> pourEdition(AuthenticatedUser u, String id) {
+        Map<String, Object> m = visible(u, id);
+        exigerDroitDeSaisie(u, m);
+        if (!"brouillon".equals(m.get("statut"))) throw refus("MISSION_NON_MODIFIABLE", "Seul un brouillon est modifiable");
+        Map<String, Object> o = new java.util.LinkedHashMap<>();
+        o.put("objet", m.get("objet")); o.put("programmeId", m.get("programme_id")); o.put("departDelegationId", m.get("depart_delegation_id")); o.put("arrivalDelegationId", m.get("arrival_delegation_id"));
+        o.put("moyenTransportId", m.get("moyen_transport_id"));
+        o.put("dateDepart", iso(m.get("date_depart")));
+        o.put("dateRetour", iso(m.get("date_retour")));
+        o.put("remboursable", bool(m.get("deplacement_remboursable"))); o.put("fraisTransport", m.get("frais_transport")); o.put("vehiculeNom", m.get("vehicule_nom"));
+        o.put("vehiculeImmatriculation", m.get("vehicule_immatriculation")); o.put("puissanceFiscaleId", m.get("puissance_fiscale_id")); o.put("distanceKm", m.get("distance_km")); o.put("nombreTrajets", m.get("nombre_trajets"));
+        return o;
+    }
+
     @Transactional
     public MissionDto modifier(AuthenticatedUser u, String id, MissionRequest q) {
         Map<String, Object> m = visible(u, id);

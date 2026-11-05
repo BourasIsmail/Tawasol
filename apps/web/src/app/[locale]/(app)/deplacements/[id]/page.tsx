@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState } from 'react';
+import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/client';
@@ -117,6 +118,7 @@ export default function DetailMission({ params }: { params: Promise<{ id: string
                   <button key={a} type="button" className={`btn ${a === 'rejeter' || a === 'annuler' || a === 'annuler_paiement' ? 'bad' : 'pri'}`} disabled={run.isPending}
                     onClick={() => (direct.includes(a) ? run.mutate(a) : setAction(a))}>{t(`mis.a_${a}`)}</button>
                 ))}
+                {!action && m.actionsPossibles.includes('modifier') && <Link className="btn" href={`/${locale}/deplacements/nouvelle?id=${m.id}`}><Icon name="pencil" />{t('mis.editDraft')}</Link>}
               </div>
             </Card>
           )}

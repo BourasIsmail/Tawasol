@@ -59,7 +59,7 @@ export function PersonnelForm({ id, scope = 'rh' }: { id?: string; scope?: 'rh' 
             <Field label={t('rhstaff.family')}><select value={f.situationFamiliale ?? ''} onChange={set('situationFamiliale')}><option value="" />{['celibataire', 'marie', 'divorce', 'veuf'].map((v) => <option key={v} value={v}>{v}</option>)}</select></Field>
             <Field label={t('rhstaff.position')}><select value={f.positionAdministrative ?? 'activite'} onChange={set('positionAdministrative')}>{['activite', 'detachement', 'disponibilite', 'mise_a_disposition', 'autre'].map((v) => <option key={v} value={v}>{v}</option>)}</select></Field>
             {inp('echelle', t('rhstaff.scale'), 'number')}{inp('echelon', t('rhstaff.step'))}
-            {inp('dateEchelon', t('rhstaff.stepDate'), 'date')}<span />
+            {inp('dateEchelle', t('rhstaff.scaleDate'), 'date')}{inp('dateEchelon', t('rhstaff.stepDate'), 'date')}
             {id && <>{inp('decisionRef', t('rhstaff.decision'))}{inp('dateEffet', t('rhstaff.effect'), 'date')}</>}
           </div>
           {save.error && <ErrorBox error={save.error} />}

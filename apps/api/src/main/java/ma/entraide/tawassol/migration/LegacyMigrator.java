@@ -880,7 +880,7 @@ public class LegacyMigrator {
         dst.query("SELECT id, grade_id FROM personnel WHERE grade_id IS NOT NULL", rs -> { gradeDe.put(rs.getString(1), rs.getString(2)); });
         Map<String, String> lots = new HashMap<>();
         Map<String, Integer> nbParLot = new HashMap<>();
-        Map<String, Object[]> dernierEchelon = new HashMap<>();   // personnel -> {annee*100+mois, ech, date_ech}
+        Map<String, Object[]> dernierEchelon = new HashMap<>();   // personnel -> {annee*100+mois, ech (échelle), echl (échelon), date_ech (date d'échelle), date_echl (date d'échelon)}
         String insert = "INSERT INTO salaire (id, personnel_id, grade_id, annee, mois, echelon, salaire_net, alloc_familiale, retenue_mutuelle, rappel, lot_id, statut, publie_le) VALUES (UUID(),?,?,?,?,?,?,?,?,?,?, 'publie', NOW())";
         List<Object[]> lot = new ArrayList<>();
         Set<String> vus = new HashSet<>();
@@ -904,24 +904,26 @@ public class LegacyMigrator {
                 return id;
             });
             nbParLot.merge(lotId, 1, Integer::sum);
-            Object ech = r.get("ech");
-            lot.add(new Object[]{pid, gradeDe.get(pid), annee, mois, ech == null || ech.toString().isBlank() ? null : ech.toString().trim(), net, alloc, mut, rap, lotId});
+            // Suivi paie : « ech » = échelle, « echl » = échelon (confirmé par la RH : échelle 11, échelon 3 pour un agent dont le bulletin porte ech = 11 et echl = 3)
+            Object ech = r.get("ech"), echl = r.get("echl");
+            lot.add(new Object[]{pid, gradeDe.get(pid), annee, mois, echl == null || echl.toString().isBlank() ? null : echl.toString().trim(), net, alloc, mut, rap, lotId});
             Object[] prev = dernierEchelon.get(pid);
             int periode = annee * 100 + mois;
-            if (ech != null && ech.toString().trim().matches("\\d+") && (prev == null || (int) prev[0] <= periode)) dernierEchelon.put(pid, new Object[]{periode, ech.toString().trim(), r.get("date_ech")});
+            if (echl != null && echl.toString().trim().matches("\\d+") && (prev == null || (int) prev[0] <= periode))
+                dernierEchelon.put(pid, new Object[]{periode, ech != null && ech.toString().trim().matches("\\d+") ? ech.toString().trim() : null, echl.toString().trim(), r.get("date_ech"), r.get("date_echl")});
             inc(t, "crees");
             if (lot.size() >= 1000) { dst.batchUpdate(insert, lot); lot.clear(); }
         }
         if (!lot.isEmpty()) dst.batchUpdate(insert, lot);
         nbParLot.forEach((id, n) -> dst.update("UPDATE import_lot SET nb_lignes = (SELECT COUNT(*) FROM salaire WHERE lot_id = ?) WHERE id = ?", id, id));
-        // dernier échelon connu = celui du dernier bulletin (la colonne « echl » de la source n'est pas reprise : sa signification est à confirmer)
+        // échelle, échelon et leurs dates : ceux du dernier bulletin
         int maj = 0;
         for (var e : dernierEchelon.entrySet()) {
             Object[] v = e.getValue();
-            maj += dst.update("UPDATE personnel SET echelon = ?, date_echelon = ? WHERE id = ?", v[1], v[2] == null ? null : sqlDate(v[2]), e.getKey());
+            maj += dst.update("UPDATE personnel SET echelle = COALESCE(?, echelle), echelon = ?, date_echelle = ?, date_echelon = ? WHERE id = ?", v[1] == null ? null : Integer.valueOf((String) v[1]), v[2],
+                    v[3] == null ? null : sqlDate(v[3]), v[4] == null ? null : sqlDate(v[4]), e.getKey());
         }
         Map<String, Object> m = c("echelons_mis_a_jour"); m.put("crees", maj);
-        anomalie("SALAIRE_ECHL_NON_REPRIS", t, "*", "Colonnes echl et date_echl non reprises : signification à confirmer par la paie");
     }
 
     private static final Map<Integer, String> APPRECIATION = Map.of();

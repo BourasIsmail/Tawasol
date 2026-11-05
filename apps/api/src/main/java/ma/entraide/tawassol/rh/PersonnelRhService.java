@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PersonnelRhService {
     public record Input(String matricule, String nomFr, String prenomFr, String nomAr, String prenomAr, String structureId, String gradeId,
                         LocalDate dateRecrutement, String email, String telephone, String cin, String sexe, String situationFamiliale,
-                        LocalDate dateNaissance, String positionAdministrative, String echelon, Integer echelle, LocalDate dateEchelon,
+                        LocalDate dateNaissance, String positionAdministrative, String echelon, Integer echelle, LocalDate dateEchelon, LocalDate dateEchelle,
                         String decisionRef, LocalDate dateEffet) {}
 
     private static final Set<String> SENSIBLES = Set.of("email", "telephone", "cin", "date_naissance");
@@ -49,7 +49,7 @@ public class PersonnelRhService {
         Map<String, Object> m = jdbc.queryForList("""
             SELECT p.id, p.matricule, p.nom_fr AS nomFr, p.prenom_fr AS prenomFr, p.nom_ar AS nomAr, p.prenom_ar AS prenomAr, p.grade_id AS gradeId, g.libelle_fr AS gradeFr, p.structure_id AS structureId,
                    s.nom_fr AS structureFr, p.date_recrutement AS dateRecrutement, p.email, p.telephone, p.cin, p.sexe, p.situation_familiale AS situationFamiliale, p.date_naissance AS dateNaissance,
-                   p.position_administrative AS positionAdministrative, p.echelon, p.echelle, p.date_echelon AS dateEchelon, p.est_actif AS actif
+                   p.position_administrative AS positionAdministrative, p.echelon, p.echelle, p.date_echelon AS dateEchelon, p.date_echelle AS dateEchelle, p.est_actif AS actif
               FROM personnel p JOIN structure s ON s.id = p.structure_id LEFT JOIN grade g ON g.id = p.grade_id WHERE p.id = ?
             """, id).stream().findFirst().orElseThrow(ma.entraide.tawassol.common.ApiException::notFound);
         audit.record(actor.userId(), "PERSONNEL_READ", "personnel", id, null, null);
@@ -71,11 +71,11 @@ public class PersonnelRhService {
         uniqueCin(in.cin(), null);
         String id = UUID.randomUUID().toString();
         jdbc.update("""
-            INSERT INTO personnel (id, grade_id, structure_id, matricule, nom_ar, prenom_ar, nom_fr, prenom_fr, date_recrutement, email, echelon, echelle, date_echelon,
+            INSERT INTO personnel (id, grade_id, structure_id, matricule, nom_ar, prenom_ar, nom_fr, prenom_fr, date_recrutement, email, echelon, echelle, date_echelon, date_echelle,
                                    date_naissance, cin, sexe, situation_familiale, telephone, position_administrative)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """, id, in.gradeId(), in.structureId(), in.matricule().trim(), in.nomAr().trim(), in.prenomAr().trim(), in.nomFr().trim(), in.prenomFr().trim(),
-                in.dateRecrutement(), blank(in.email()), blank(in.echelon()), in.echelle(), in.dateEchelon(), in.dateNaissance(), blank(in.cin()), blank(in.sexe()),
+                in.dateRecrutement(), blank(in.email()), blank(in.echelon()), in.echelle(), in.dateEchelon(), in.dateEchelle(), in.dateNaissance(), blank(in.cin()), blank(in.sexe()),
                 blank(in.situationFamiliale()), blank(in.telephone()), in.positionAdministrative() == null ? "activite" : in.positionAdministrative());
         historique(id, actor, "affectation", null, structureCode(in.structureId()), in.dateEffet() != null ? in.dateEffet() : in.dateRecrutement(), in.decisionRef());
         audit.record(actor.userId(), "PERSONNEL_CREE", "personnel", id, null, "{\"matricule\":\"" + in.matricule().trim() + "\"}");
@@ -97,7 +97,7 @@ public class PersonnelRhService {
         put(neu, old, "telephone", blank(in.telephone())); put(neu, old, "cin", blank(in.cin())); put(neu, old, "sexe", blank(in.sexe()));
         put(neu, old, "situation_familiale", blank(in.situationFamiliale())); put(neu, old, "date_naissance", in.dateNaissance());
         put(neu, old, "position_administrative", in.positionAdministrative()); put(neu, old, "echelon", blank(in.echelon()));
-        put(neu, old, "echelle", in.echelle()); put(neu, old, "date_echelon", in.dateEchelon());
+        put(neu, old, "echelle", in.echelle()); put(neu, old, "date_echelon", in.dateEchelon()); put(neu, old, "date_echelle", in.dateEchelle());
         Map<String, Object> avant = new LinkedHashMap<>(), apres = new LinkedHashMap<>();
         for (var e : neu.entrySet()) {
             Object a = old.get(e.getKey()), b = e.getValue();
@@ -108,14 +108,14 @@ public class PersonnelRhService {
         if (avant.isEmpty()) return;
         jdbc.update("""
             UPDATE personnel SET matricule=?, nom_fr=?, prenom_fr=?, nom_ar=?, prenom_ar=?, structure_id=?, grade_id=?, date_recrutement=?, email=?, telephone=?, cin=?,
-                   sexe=?, situation_familiale=?, date_naissance=?, position_administrative=?, echelon=?, echelle=?, date_echelon=? WHERE id=?
+                   sexe=?, situation_familiale=?, date_naissance=?, position_administrative=?, echelon=?, echelle=?, date_echelon=?, date_echelle=? WHERE id=?
             """, neu.get("matricule"), neu.get("nom_fr"), neu.get("prenom_fr"), neu.get("nom_ar"), neu.get("prenom_ar"), neu.get("structure_id"), neu.get("grade_id"),
                 neu.get("date_recrutement"), neu.get("email"), neu.get("telephone"), neu.get("cin"), neu.get("sexe"), neu.get("situation_familiale"), neu.get("date_naissance"),
-                neu.get("position_administrative"), neu.get("echelon"), neu.get("echelle"), neu.get("date_echelon"), id);
+                neu.get("position_administrative"), neu.get("echelon"), neu.get("echelle"), neu.get("date_echelon"), neu.get("date_echelle"), id);
         LocalDate effet = in.dateEffet() != null ? in.dateEffet() : LocalDate.now(clock);
         if (avant.containsKey("structure_id")) historique(id, actor, "affectation", structureCode((String) old.get("structure_id")), structureCode((String) neu.get("structure_id")), effet, in.decisionRef());
         if (avant.containsKey("grade_id")) historique(id, actor, "grade", gradeLabel((String) old.get("grade_id")), gradeLabel((String) neu.get("grade_id")), effet, in.decisionRef());
-        if (avant.containsKey("echelon") || avant.containsKey("date_echelon") || avant.containsKey("echelle")) {
+        if (avant.containsKey("echelon") || avant.containsKey("date_echelon") || avant.containsKey("date_echelle") || avant.containsKey("echelle")) {
             historique(id, actor, "echelon", str(old.get("echelle")) + "/" + str(old.get("echelon")), str(neu.get("echelle")) + "/" + str(neu.get("echelon")), effet, in.decisionRef());
         }
         if (avant.containsKey("position_administrative")) historique(id, actor, "position", (String) old.get("position_administrative"), (String) neu.get("position_administrative"), effet, in.decisionRef());

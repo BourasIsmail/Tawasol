@@ -148,15 +148,9 @@ class DemandeWorkflowIT extends IntegrationTestBase {
         assertEquals(0, jdbc.queryForObject("SELECT validation_responsable FROM type_demande WHERE code = 'ATTESTATION'", Integer.class));
     }
 
-    @Test void avancePlafondEtCapaciteDEndettement() throws Exception {
-        send(HttpMethod.POST, "/api/v1/demandes/" + draft(ta, "AVANCE_SALAIRE", null, null, Map.of("montant", 6000), null) + "/soumettre", ta, null)
-                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("ADVANCE_CEILING_EXCEEDED"));
-        JsonNode ok = submit(ta, draft(ta, "AVANCE_SALAIRE", null, null, Map.of("montant", 3000), null));
-        assertEquals("DEBT_CAPACITY_NOT_ASSESSED", ok.get("avertissements").get(0).asText());
-        jdbc.update("INSERT INTO salaire (personnel_id, annee, mois, salaire_net, statut) VALUES (?, 2026, 9, 5000, 'publie')", pb);
-        jdbc.update("INSERT INTO credit (personnel_id, banque, mensualite, nb_mois_restants, statut) VALUES (?, 'Banque', 2000, 10, 'publie')", pb);
-        send(HttpMethod.POST, "/api/v1/demandes/" + draft(tb, "AVANCE_SALAIRE", null, null, Map.of("montant", 1000), null) + "/soumettre", tb, null)
-                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("DEBT_CAPACITY_EXCEEDED"));
+    @Test void leTypeAvanceSurSalaireNExistePlus() throws Exception {
+        send(HttpMethod.POST, "/api/v1/demandes", ta, Map.of("typeCode", "AVANCE_SALAIRE", "donnees", Map.of("montant", 1000))).andExpect(status().is4xxClientError());
+        send(HttpMethod.GET, "/api/v1/types-demande", ta, null).andExpect(jsonPath("$[*].code", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("AVANCE_SALAIRE"))));
     }
 
     @Test void ordreDeMissionCreeUnEnregistrementLie_etSonAnnulationLePropage() throws Exception {
