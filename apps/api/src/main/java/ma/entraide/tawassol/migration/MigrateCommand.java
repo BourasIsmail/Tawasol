@@ -61,7 +61,8 @@ public class MigrateCommand implements ApplicationRunner {
         if (sourceUrl.isBlank()) throw new IllegalStateException("Source absente (tawassol.migrate.source.url).");
 
         HikariConfig hc = new HikariConfig();
-        hc.setJdbcUrl(sourceUrl); hc.setUsername(sourceUser); hc.setPassword(sourcePassword);
+        // Suivi RH et la paie contiennent des dates « 0000-00-00 » : lues comme absentes (null) au lieu de faire échouer la reprise
+        hc.setJdbcUrl(sourceUrl.contains("zeroDateTimeBehavior") ? sourceUrl : sourceUrl + (sourceUrl.contains("?") ? "&" : "?") + "zeroDateTimeBehavior=CONVERT_TO_NULL"); hc.setUsername(sourceUser); hc.setPassword(sourcePassword);
         hc.setReadOnly(true); hc.setMaximumPoolSize(1);
         try (HikariDataSource ds = new HikariDataSource(hc)) {
             MigrationService.Resultat res = service.executer(new JdbcTemplate(ds), reel, reel ? validation : null);

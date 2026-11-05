@@ -22,7 +22,7 @@ class MigrationM2IT extends IntegrationTestBase {
     @Autowired MigrationService service;
 
     private static final String[] TABLES = {"annees", "coordinations", "delegations", "structures", "grades", "responsabilites", "administrations", "moyen_transports",
-            "puissance_fiscales", "programmes", "holidays", "personnes", "roles", "users", "deplacement_propres", "deplacement_programmes", "deplacement_programme_statuses", "conge_types", "conges", "messages", "salaire_fonctionnaire", "Note_Annuelle"};
+            "puissance_fiscales", "programmes", "holidays", "personnes", "roles", "users", "deplacement_propres", "deplacement_programmes", "deplacement_programme_statuses", "conge_types", "conges", "messages", "salaire_fonctionnaire", "salaire_fonctionnaire_2025", "Note_Annuelle", "Note_Annuelle1", "fonctionnaire"};
 
     @BeforeAll void creerLaSource() {
         dropSource();
@@ -45,6 +45,9 @@ class MigrationM2IT extends IntegrationTestBase {
         jdbc.execute("CREATE TABLE deplacement_programmes (id BIGINT PRIMARY KEY, objet VARCHAR(200), date_depart DATETIME, date_retour DATETIME NULL, date_ordm DATE NULL, numero_ordm VARCHAR(40) NULL, numero_etat VARCHAR(60) NULL, nombre_repas_taux_1 INT NULL, indemnite_taux_1 DOUBLE NULL, nombre_repas_taux_2 INT NULL, indemnite_taux_2 DOUBLE NULL, cycle INT NULL, programme_id BIGINT NULL, personne_id BIGINT, annee_id INT, moyen_transport_id BIGINT NULL, status_id BIGINT, depart_delegation_id BIGINT NULL, arrival_delegation_id BIGINT NULL, parent_deplacement_id BIGINT NULL, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME NULL, phase INT NULL)");
         jdbc.execute("CREATE TABLE salaire_fonctionnaire (som INT, matricule VARCHAR(6), annee INT, mois INT, ech TEXT NULL, echl TEXT NULL, net DECIMAL(8,2), rappel TEXT NULL, all_familiale TEXT NULL, grade VARCHAR(60), code_grade INT, date_ech DATE, date_echl DATE NULL, Retenue_Mutuelle DECIMAL(8,2) NULL, commentaire VARCHAR(250) NULL)");
         jdbc.execute("CREATE TABLE Note_Annuelle (Som INT, Matricule VARCHAR(6), Annee INT, Note TEXT NULL)");
+        jdbc.execute("CREATE TABLE Note_Annuelle1 (Som INT, Matricule VARCHAR(6), Annee INT, Note TEXT NULL)");
+        jdbc.execute("CREATE TABLE salaire_fonctionnaire_2025 (som INT, matricule VARCHAR(6), annee INT, mois INT, ech TEXT NULL, echl TEXT NULL, net DECIMAL(8,2), rappel TEXT NULL, all_familiale TEXT NULL, grade VARCHAR(60), code_grade INT, date_ech DATE, date_echl DATE NULL, Retenue_Mutuelle DECIMAL(8,2) NULL, commentaire VARCHAR(250) NULL)");
+        jdbc.execute("CREATE TABLE fonctionnaire (id_fonctionnaire INT, matricule VARCHAR(8), nom_prenom VARCHAR(250), nom_prenom_fr VARCHAR(200), date_embauche DATE NULL, email VARCHAR(250), photo VARCHAR(60) NULL)");
         jdbc.execute("CREATE TABLE annees (id BIGINT PRIMARY KEY, annee INT)");
         jdbc.execute("CREATE TABLE conges (id BIGINT PRIMARY KEY, personne_id BIGINT, date_debut DATE NULL, date_fin DATE NULL, numero_demande INT NULL, date_demande DATE NULL, article_special VARCHAR(50) NULL, lieu_conge VARCHAR(100) NULL, langue_decision VARCHAR(5) NULL, type_id BIGINT, status_id BIGINT, annee_courante_id INT NULL, annee_precedente_id INT NULL, nombre_jours_annee_courante INT NULL, nombre_jours_annee_precedente INT NULL, objet_conge_exceptionnel VARCHAR(200) NULL, nombre_jours_conge INT NULL, remplacant_id BIGINT NULL, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME NULL)");
         jdbc.execute("CREATE TABLE messages (id BIGINT PRIMARY KEY, message TEXT, response TEXT NULL, phone VARCHAR(30) NULL, user_id BIGINT NULL, created_at DATETIME, updated_at DATETIME, deleted_at DATETIME NULL)");
@@ -87,6 +90,11 @@ class MigrationM2IT extends IntegrationTestBase {
         jdbc.update(dg + "(1,'Mission programme','2024-07-20 08:00:00','2024-07-20 20:00:00','2024-07-18','TG / 5 / 2024','PR / TG - 9 / 2024',3,40,0,35,1,1,10,2024,2,6,1,83,'2024-07-18 10:00:00','2024-07-21 10:00:00',NULL)," +
                 "(2,'Mission annulée','2024-08-01 08:00:00','2024-08-01 20:00:00','2024-07-30','TG / 6 / 2024','PR / TG - 10 / 2024',0,0,0,0,1,1,10,2024,2,4,1,83,'2024-07-30 10:00:00','2024-07-31 10:00:00','2024-07-31 10:00:00')");
         jdbc.update("INSERT INTO salaire_fonctionnaire (som, matricule, annee, mois, ech, echl, net, rappel, all_familiale, grade, code_grade, date_ech, date_echl, Retenue_Mutuelle) VALUES (1,'P9001',2026,8,'4','6',5000.50,'0.00','300.00','G',1,'2024-01-01','2025-01-01',120.25), (1,'P9001',2026,9,'5','6',5100.75,'','','G',1,'2025-01-01','2025-01-01',120.25), (2,'Z0000',2026,9,'1','1',4000,'0','0','G',1,'2020-01-01',NULL,0)");
+        // années antérieures : un bulletin de 2025 pour un agent connu, un pour un matricule inconnu ; notes 2019 (une nouvelle, une en conflit avec une note de 2024 du premier fichier)
+        jdbc.update("INSERT INTO salaire_fonctionnaire_2025 (som, matricule, annee, mois, ech, echl, net, rappel, all_familiale, grade, code_grade, date_ech, date_echl, Retenue_Mutuelle) VALUES (1,'P9001',2025,12,'4','2',4900.00,'0','0','G',1,'2023-01-01','2024-01-01',100), (9,'Q0000',2025,12,'1','1',3000,'0','0','G',1,'2020-01-01','2020-01-01',0)");
+        jdbc.update("INSERT INTO Note_Annuelle1 (Som, Matricule, Annee, Note) VALUES (1,'P9001',2019,'16.5'), (2,'P9001',2024,'12'), (3,'P9002',2019,'')");
+        // fonctionnaire : date plausible, date en conflit, date invalide, minuscules, matricule inconnu
+        jdbc.update("INSERT INTO fonctionnaire (id_fonctionnaire, matricule, nom_prenom, nom_prenom_fr, date_embauche, email) VALUES (1,'p9001','x','x','2011-07-25','a@entraide.ma'), (2,'P9002','y','y','2012-01-01','b@entraide.ma'), (3,'P9002','y','y','2015-05-05','b@entraide.ma'), (4,'P9001','x','x','0000-00-00','a@entraide.ma'), (5,'ZZZZ9','w','w','2010-10-10','d@entraide.ma')");
         jdbc.update("INSERT INTO Note_Annuelle (Som, Matricule, Annee, Note) VALUES (1,'P9001',2024,'17.5'), (2,'P9001',2024,'17.50'), (3,'P9001',2025,'18'), (4,'P9001',2025,'19'), (5,'P9002',2024,''), (6,'ZZZZ',2024,'15')");
         jdbc.update("INSERT INTO conges (id, personne_id, date_debut, date_fin, numero_demande, type_id, status_id, nombre_jours_annee_courante, nombre_jours_annee_precedente, created_at, updated_at) VALUES (1,10,'2024-08-01','2024-08-10',843,1,5,8,0,'2024-07-20 10:00:00','2024-07-20 10:00:00'), (2,10,'0004-01-02','2024-12-06',12,1,2,0,5,'2024-07-20 10:00:00','2024-07-20 10:00:00')");
         jdbc.update("INSERT INTO annees (id, annee) VALUES (2023,2023),(2024,2024),(2025,2025),(2026,2026)");
@@ -139,7 +147,7 @@ class MigrationM2IT extends IntegrationTestBase {
         // personnel : une seule personne reprise sur 4 (doublon de matricule, CNIE en double reprise, affectation inconnue)
         assertEquals(2, t(r, "personnes").get("crees"));
         assertEquals(2, t(r, "personnes").get("ignores"));
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM personnel WHERE matricule = 'P9001' AND nom_fr = 'AKRACHE' AND prenom_fr = 'ABDELLAH' AND nom_ar = 'عكراش' AND nom_prenom_fr_legacy = 'AKRACHE ABDELLAH' AND est_actif = 1 AND a_completer = 1 AND date_recrutement IS NULL", Integer.class));
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM personnel WHERE matricule = 'P9001' AND nom_fr = 'AKRACHE' AND prenom_fr = 'ABDELLAH' AND nom_ar = 'عكراش' AND nom_prenom_fr_legacy = 'AKRACHE ABDELLAH' AND est_actif = 1 AND a_completer = 1", Integer.class));
         // CNIE : chiffrée, jamais en clair, empreinte présente ; la colonne cin reste vide
         Map<String, Object> p = jdbc.queryForMap("SELECT cnie_chiffre, cnie_empreinte, cin FROM personnel WHERE matricule = 'P9001'");
         assertNotNull(p.get("cnie_chiffre")); assertEquals(64, ((String) p.get("cnie_empreinte")).length()); assertNull(p.get("cin"));
@@ -243,7 +251,7 @@ class MigrationM2IT extends IntegrationTestBase {
         assertNotNull(jdbc.queryForObject("SELECT supprime_le FROM ordre_mission WHERE source_legacy = 'programme' AND id_legacy = 2", java.sql.Timestamp.class));
         // salaires : un lot publié par mois, matricule inconnu ignoré, textes vides = 0, dernier échelon connu reporté sur la fiche
         assertEquals(2, t(r, "salaire_fonctionnaire").get("crees")); assertEquals(1, t(r, "salaire_fonctionnaire").get("ignores"));
-        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM import_lot WHERE numero LIKE 'REPRISE-S-%' AND statut = 'publie'", Integer.class));
+        assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM import_lot WHERE numero LIKE 'REPRISE-S-%' AND statut = 'publie'", Integer.class), "un lot par mois : 2026/8, 2026/9 et 2025/12");
         assertEquals(0, new java.math.BigDecimal("0.00").compareTo(jdbc.queryForObject("SELECT alloc_familiale FROM salaire WHERE annee = 2026 AND mois = 9", java.math.BigDecimal.class)));
         assertEquals("publie", jdbc.queryForObject("SELECT statut FROM salaire WHERE annee = 2026 AND mois = 8", String.class));
         // « ech » = échelle (5), « echl » = échelon (6) du dernier bulletin, chacun avec sa date
@@ -253,8 +261,20 @@ class MigrationM2IT extends IntegrationTestBase {
         assertEquals("2025-01-01", jdbc.queryForObject("SELECT date_echelon FROM personnel WHERE matricule = 'P9001'", String.class));
         assertEquals("6", jdbc.queryForObject("SELECT echelon FROM salaire WHERE annee = 2026 AND mois = 9", String.class), "le bulletin porte l'échelon, pas l'échelle");
         // notes : 17.5 et 17.50 ne font qu'une ; deux valeurs différentes = conflit signalé, la plus récente gardée ; note vide et matricule inconnu ignorés
-        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM note_annuelle", Integer.class));
+        assertEquals(3, jdbc.queryForObject("SELECT COUNT(*) FROM note_annuelle", Integer.class), "2024, 2025 et la note 2019 du fichier complémentaire");
         assertEquals(0, new java.math.BigDecimal("19").compareTo(jdbc.queryForObject("SELECT note FROM note_annuelle WHERE annee = 2025", java.math.BigDecimal.class)));
+        // reprise des années antérieures
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM salaire WHERE annee = 2025 AND mois = 12", Integer.class), "bulletin 2025 repris, matricule inconnu ignoré");
+        assertEquals("REPRISE-S-202512", jdbc.queryForObject("SELECT l.numero FROM salaire s JOIN import_lot l ON l.id = s.lot_id WHERE s.annee = 2025", String.class));
+        assertEquals("6", jdbc.queryForObject("SELECT echelon FROM personnel WHERE matricule = 'P9001'", String.class), "un bulletin plus ancien n'écrase pas l'échelon du dernier bulletin");
+        assertEquals(0, new java.math.BigDecimal("16.5").compareTo(jdbc.queryForObject("SELECT note FROM note_annuelle n JOIN personnel p ON p.id = n.personnel_id WHERE p.matricule = 'P9001' AND n.annee = 2019", java.math.BigDecimal.class)), "note 2019 du fichier complémentaire");
+        assertEquals(0, new java.math.BigDecimal("17.5").compareTo(jdbc.queryForObject("SELECT note FROM note_annuelle n JOIN personnel p ON p.id = n.personnel_id WHERE p.matricule = 'P9001' AND n.annee = 2024", java.math.BigDecimal.class)), "en cas de conflit la valeur du premier fichier est gardée");
+        assertEquals("2011-07-25", jdbc.queryForObject("SELECT CAST(date_recrutement AS CHAR) FROM personnel WHERE matricule = 'P9001'", String.class), "date d'embauche reprise (matricule en minuscules)");
+        assertNull(jdbc.queryForObject("SELECT date_recrutement FROM personnel WHERE matricule = 'P9002'", java.sql.Date.class), "deux dates différentes : aucune reprise");
+        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM personnel WHERE matricule = 'P9001' AND date_recrutement IS NOT NULL", Integer.class), "une date invalide (0000-00-00) n'efface pas la date valide du même matricule");
+        assertTrue(((Map<?, ?>) r.rapport().get("anomalies_par_code")).containsKey("EMBAUCHE_EN_CONFLIT"));
+        assertTrue(((Map<?, ?>) r.rapport().get("anomalies_par_code")).containsKey("EMAILS_NON_REPRIS"), "les e-mails du fichier ne sont pas repris");
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM personnel WHERE email IS NOT NULL AND email <> ''", Integer.class), "aucune adresse e-mail reprise");
         assertEquals("publiee", jdbc.queryForObject("SELECT statut FROM note_annuelle WHERE annee = 2024", String.class));
         @SuppressWarnings("unchecked") Map<String, Long> codes = (Map<String, Long>) r.rapport().get("anomalies_par_code");
         for (String c : java.util.List.of("NOTE_EN_CONFLIT", "NOTE_VIDE", "NOTE_MATRICULE_INCONNU", "SALAIRE_MATRICULE_INCONNU", "GENERATION_ALEATOIRE_UTILISEE_EN_PRODUCTION")) assertTrue(codes.containsKey(c), c + " dans " + codes);

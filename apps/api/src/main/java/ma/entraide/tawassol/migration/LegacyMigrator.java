@@ -67,6 +67,7 @@ public class LegacyMigrator {
         programmes();
         joursFeries();
         personnes();
+        recrutement();
         comptes();
         verifierBaremes();
         deplacements();
@@ -872,9 +873,11 @@ public class LegacyMigrator {
     }
 
     /** Un lot publié par mois, comme pour un import de la RH. Le dernier échelon connu met à jour la fiche. */
+    /** Tables de salaires de la paie : l'année en cours et les années antérieures fournies à part. */
+    private static final List<String> TABLES_SALAIRE = List.of("salaire_fonctionnaire", "salaire_fonctionnaire_2023", "salaire_fonctionnaire_2024", "salaire_fonctionnaire_2025");
+
     private void salaires() {
-        String t = "salaire_fonctionnaire";
-        if (!tableSource(t)) return;
+        if (TABLES_SALAIRE.stream().noneMatch(this::tableSource)) return;
         Map<String, String> pers = personnelParMatricule();
         Map<String, String> gradeDe = new HashMap<>();
         dst.query("SELECT id, grade_id FROM personnel WHERE grade_id IS NOT NULL", rs -> { gradeDe.put(rs.getString(1), rs.getString(2)); });
@@ -886,12 +889,20 @@ public class LegacyMigrator {
         Set<String> vus = new HashSet<>();
         Set<String> existants = new HashSet<>(dst.queryForList("SELECT CONCAT(personnel_id, '|', annee, '|', mois) FROM salaire", String.class));
         dst.query("SELECT numero, id FROM import_lot WHERE numero LIKE 'REPRISE-S-%'", rs -> { String n = rs.getString(1); lots.put(Integer.parseInt(n.substring(10, 14)) + "-" + Integer.parseInt(n.substring(14)), rs.getString(2)); });
-        for (Map<String, Object> r : src.queryForList("SELECT * FROM salaire_fonctionnaire ORDER BY annee, mois, matricule")) {
+        for (String t : TABLES_SALAIRE) {
+        if (!tableSource(t)) continue;
+        for (Map<String, Object> r : src.queryForList("SELECT * FROM " + t + " ORDER BY annee, mois, matricule")) {
             inc(t, "lus");
-            String mat = String.valueOf(r.get("matricule")).trim();
+            String mat = String.valueOf(r.get("matricule")).trim().toUpperCase();
             String pid = pers.get(mat);
             if (pid == null) { anomalie("SALAIRE_MATRICULE_INCONNU", t, mat, "Matricule absent de la liste du personnel : ligne non reprise"); inc(t, "ignores"); continue; }
             int annee = ((Number) r.get("annee")).intValue(), mois = ((Number) r.get("mois")).intValue();
+            {
+                Object ech0 = r.get("ech"), echl0 = r.get("echl");
+                Object[] prev0 = dernierEchelon.get(pid);
+                if (pid != null && echl0 != null && echl0.toString().trim().matches("\\d+") && (prev0 == null || (int) prev0[0] <= annee * 100 + mois))
+                    dernierEchelon.put(pid, new Object[]{annee * 100 + mois, ech0 != null && ech0.toString().trim().matches("\\d+") ? ech0.toString().trim() : null, echl0.toString().trim(), r.get("date_ech"), r.get("date_echl")});
+            }
             if (existants.contains(pid + "|" + annee + "|" + mois)) { inc(t, "deja_presents"); continue; }
             if (!vus.add(pid + "|" + annee + "|" + mois)) { anomalie("SALAIRE_EN_DOUBLE", t, mat, "Deux lignes pour " + annee + "/" + mois + " : la première est conservée"); inc(t, "ignores"); continue; }
             BigDecimal net = nombre(r.get("net")), alloc = nombre(r.get("all_familiale")), mut = nombre(r.get("Retenue_Mutuelle")), rap = nombre(r.get("rappel"));
@@ -907,12 +918,9 @@ public class LegacyMigrator {
             // Suivi paie : « ech » = échelle, « echl » = échelon (confirmé par la RH : échelle 11, échelon 3 pour un agent dont le bulletin porte ech = 11 et echl = 3)
             Object ech = r.get("ech"), echl = r.get("echl");
             lot.add(new Object[]{pid, gradeDe.get(pid), annee, mois, echl == null || echl.toString().isBlank() ? null : echl.toString().trim(), net, alloc, mut, rap, lotId});
-            Object[] prev = dernierEchelon.get(pid);
-            int periode = annee * 100 + mois;
-            if (echl != null && echl.toString().trim().matches("\\d+") && (prev == null || (int) prev[0] <= periode))
-                dernierEchelon.put(pid, new Object[]{periode, ech != null && ech.toString().trim().matches("\\d+") ? ech.toString().trim() : null, echl.toString().trim(), r.get("date_ech"), r.get("date_echl")});
             inc(t, "crees");
             if (lot.size() >= 1000) { dst.batchUpdate(insert, lot); lot.clear(); }
+        }
         }
         if (!lot.isEmpty()) dst.batchUpdate(insert, lot);
         nbParLot.forEach((id, n) -> dst.update("UPDATE import_lot SET nb_lignes = (SELECT COUNT(*) FROM salaire WHERE lot_id = ?) WHERE id = ?", id, id));
@@ -926,17 +934,53 @@ public class LegacyMigrator {
         Map<String, Object> m = c("echelons_mis_a_jour"); m.put("crees", maj);
     }
 
+    /**
+     * Date de recrutement (date d'embauche) du fichier « fonctionnaire » de la paie. Une date n'est reprise que si elle est plausible (1960 jusqu'à aujourd'hui)
+     * et sans conflit : un matricule qui a deux dates différentes n'en reçoit aucune (anomalie, à trancher par la RH). Une date déjà saisie n'est jamais écrasée.
+     * Les adresses e-mail du fichier ne sont PAS reprises : elles déclencheraient des envois réels (réinitialisation de mot de passe) ; à valider d'abord.
+     */
+    private void recrutement() {
+        String t = "fonctionnaire";
+        if (!tableSource(t)) return;
+        Map<String, String> pers = personnelParMatricule();
+        Map<String, Set<String>> dates = new LinkedHashMap<>();
+        java.time.LocalDate min = java.time.LocalDate.of(1960, 1, 1), max = java.time.LocalDate.now();
+        int emails = 0;
+        for (Map<String, Object> r : src.queryForList("SELECT UPPER(TRIM(matricule)) AS mat, CAST(date_embauche AS CHAR) AS d, email FROM fonctionnaire")) {
+            inc(t, "lus");
+            String mat = String.valueOf(r.get("mat"));
+            if (r.get("email") != null && !r.get("email").toString().isBlank()) emails++;
+            if (!pers.containsKey(mat)) { inc(t, "ignores"); continue; }
+            String d = r.get("d") == null ? "" : r.get("d").toString().trim();
+            java.time.LocalDate ld = null;
+            try { ld = d.length() >= 10 ? java.time.LocalDate.parse(d.substring(0, 10)) : null; } catch (RuntimeException e) { ld = null; }
+            Set<String> s = dates.computeIfAbsent(mat, k -> new LinkedHashSet<>());
+            if (ld != null && !ld.isBefore(min) && !ld.isAfter(max)) s.add(ld.toString());
+        }
+        int poses = 0;
+        for (var e : dates.entrySet()) {
+            if (e.getValue().isEmpty()) { anomalie("EMBAUCHE_INVALIDE", t, e.getKey(), "Date d'embauche absente ou invalide : date de recrutement non renseignée"); continue; }
+            if (e.getValue().size() > 1) { anomalie("EMBAUCHE_EN_CONFLIT", t, e.getKey(), "Plusieurs dates d'embauche différentes " + e.getValue() + " : aucune reprise, à trancher par la RH"); continue; }
+            poses += dst.update("UPDATE personnel SET date_recrutement = ? WHERE id = ? AND date_recrutement IS NULL", java.sql.Date.valueOf(e.getValue().iterator().next()), pers.get(e.getKey()));
+        }
+        Map<String, Object> m = c("dates_recrutement_reprises"); m.put("crees", poses);
+        if (emails > 0) anomalie("EMAILS_NON_REPRIS", t, "*", emails + " adresses e-mail dans le fichier fonctionnaire non reprises : à valider avant import (elles servent aux envois réels)");
+    }
+
     private static final Map<Integer, String> APPRECIATION = Map.of();
 
     /** Notes annuelles publiées. Deux lignes de même valeur (17.5 et 17.50) ne sont qu'une ; deux valeurs différentes sont signalées et la plus récente (plus grand « Som ») est gardée. */
     private void notes() {
-        String t = "Note_Annuelle";
-        if (!tableSource(t)) return;
+        if (!tableSource("Note_Annuelle") && !tableSource("Note_Annuelle1")) return;
         Map<String, String> pers = personnelParMatricule();
         Map<String, Object[]> retenu = new LinkedHashMap<>();   // matricule|annee -> {som, note}
-        for (Map<String, Object> r : src.queryForList("SELECT Som, Matricule, Annee, Note FROM Note_Annuelle ORDER BY Annee, Matricule, Som")) {
+        // Note_Annuelle1 : notes des années antérieures fournies à part ; en cas de valeur différente, la valeur du premier fichier est gardée et le conflit signalé
+        for (String t : List.of("Note_Annuelle", "Note_Annuelle1")) {
+        if (!tableSource(t)) continue;
+        boolean complement = t.endsWith("1");
+        for (Map<String, Object> r : src.queryForList("SELECT Som, Matricule, Annee, Note FROM " + t + " ORDER BY Annee, Matricule, Som")) {
             inc(t, "lus");
-            String mat = String.valueOf(r.get("Matricule")).trim();
+            String mat = String.valueOf(r.get("Matricule")).trim().toUpperCase();
             if (!pers.containsKey(mat)) { anomalie("NOTE_MATRICULE_INCONNU", t, mat, "Matricule absent de la liste du personnel"); inc(t, "ignores"); continue; }
             BigDecimal note = r.get("Note") == null || r.get("Note").toString().isBlank() ? null : nombre(r.get("Note"));
             if (note == null) { anomalie("NOTE_VIDE", t, mat, "Note absente ou illisible pour " + r.get("Annee")); inc(t, "ignores"); continue; }
@@ -944,19 +988,21 @@ public class LegacyMigrator {
             String cle = mat + "|" + r.get("Annee");
             Object[] prev = retenu.get(cle);
             if (prev != null) {
-                if (((BigDecimal) prev[1]).compareTo(note) != 0) anomalie("NOTE_EN_CONFLIT", t, mat, "Deux valeurs pour " + r.get("Annee") + " : " + prev[1] + " et " + note + " ; la plus récente est gardée");
+                if (((BigDecimal) prev[1]).compareTo(note) != 0) anomalie("NOTE_EN_CONFLIT", t, mat, "Deux valeurs pour " + r.get("Annee") + " : " + prev[1] + " et " + note + (complement ? " ; la valeur du premier fichier est gardée" : " ; la plus récente est gardée"));
                 else inc(t, "ignores");
+                if (complement) continue;
             }
             retenu.put(cle, new Object[]{r.get("Som"), note});
+        }
         }
         String insert = "INSERT INTO note_annuelle (id, personnel_id, annee, note, statut, publie_le, date_validation) VALUES (UUID(),?,?,?, 'publiee', NOW(), NOW())";
         List<Object[]> lot = new ArrayList<>();
         Set<String> deja = new HashSet<>(dst.queryForList("SELECT CONCAT(personnel_id, '|', annee) FROM note_annuelle", String.class));
         for (var e : retenu.entrySet()) {
             String[] k = e.getKey().split("\\|");
-            if (deja.contains(pers.get(k[0]) + "|" + k[1])) { inc(t, "deja_presents"); continue; }
+            if (deja.contains(pers.get(k[0]) + "|" + k[1])) { inc("Note_Annuelle", "deja_presents"); continue; }
             lot.add(new Object[]{pers.get(k[0]), Integer.parseInt(k[1]), e.getValue()[1]});
-            inc(t, "crees");
+            inc("Note_Annuelle", "crees");
             if (lot.size() >= 1000) { dst.batchUpdate(insert, lot); lot.clear(); }
         }
         if (!lot.isEmpty()) dst.batchUpdate(insert, lot);
