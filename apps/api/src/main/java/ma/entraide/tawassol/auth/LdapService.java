@@ -120,6 +120,38 @@ public class LdapService {
         }
     }
 
+    /** Exploration pour l'administrateur : au plus 3 fiches dont le nom, l'identifiant ou l'e-mail contient le texte, avec leurs attributs lisibles (hors binaires). */
+    public java.util.List<java.util.Map<String, Object>> exploration(String texte) {
+        java.util.List<java.util.Map<String, Object>> out = new ArrayList<>();
+        if (!actif() || texte == null || texte.trim().length() < 3) return out;
+        try (LDAPConnection c = connecter()) {
+            c.bind(cfg.bindDn(), cfg.bindPassword());
+            String t = Filter.encodeValue(texte.trim());
+            Filter f = Filter.create("(&(objectClass=user)(|(sAMAccountName=*" + t + "*)(cn=*" + t + "*)(displayName=*" + t + "*)(mail=*" + t + "*)(employeeID=*" + t + "*)))");
+            java.util.List<SearchResultEntry> es;
+            try {
+                es = c.search(new SearchRequest(cfg.baseDn(), SearchScope.SUB, com.unboundid.ldap.sdk.DereferencePolicy.NEVER, 3, 5, false, f, "*")).getSearchEntries();
+            } catch (com.unboundid.ldap.sdk.LDAPSearchException e) {
+                if (e.getResultCode() != ResultCode.SIZE_LIMIT_EXCEEDED) throw e;
+                es = e.getSearchEntries();
+            }
+            for (SearchResultEntry e : es) {
+                java.util.Map<String, Object> m = new java.util.TreeMap<>();
+                m.put("dn", e.getDN());
+                for (com.unboundid.ldap.sdk.Attribute a : e.getAttributes()) {
+                    String n = a.getName().toLowerCase();
+                    if (n.contains("pwd") || n.contains("password") || n.equals("objectsid") || n.equals("objectguid") || n.equals("thumbnailphoto") || n.equals("usercertificate")) continue;
+                    String v = String.join(" | ", a.getValues());
+                    m.put(a.getName(), v.length() > 120 ? v.substring(0, 120) + "…" : v);
+                }
+                out.add(m);
+            }
+        } catch (Exception e) {
+            out.add(java.util.Map.of("erreur", e.getClass().getSimpleName() + " : " + e.getMessage()));
+        }
+        return out;
+    }
+
     private LDAPConnection connecter() throws Exception {
         LDAPException derniere = null;
         for (String h : cfg.hosts()) {

@@ -30,6 +30,12 @@ public class AdminController {
     @org.springframework.web.bind.annotation.GetMapping("/ldap/diagnostic")
     public java.util.List<String> ldapDiagnostic() { return ldapService.diagnostic(); }
 
+    /** Exploration de l'annuaire (3 fiches au plus) pour trouver l'attribut qui porte le matricule. */
+    @org.springframework.web.bind.annotation.GetMapping("/ldap/exploration")
+    public java.util.List<java.util.Map<String, Object>> ldapExploration(@org.springframework.web.bind.annotation.RequestParam String q) {
+        return ldapService.exploration(q);
+    }
+
     /** Cherche un identifiant dans l'annuaire et montre l'attribut matricule lu : aide à valider le rapprochement avec les comptes. */
     @org.springframework.web.bind.annotation.GetMapping("/ldap/recherche")
     public java.util.Map<String, Object> ldapRecherche(@org.springframework.web.bind.annotation.RequestParam String identifiant) {
