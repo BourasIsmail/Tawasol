@@ -50,8 +50,8 @@ services:
       LDAP_BASE_DN: ${LDAP_BASE_DN:-OU=USERS,OU=Entraide Nationale,DC=ad,DC=entraide,DC=ma}
       LDAP_BIND_DN: ${LDAP_BIND_DN:-CN=svc_tawassol_ldap,OU=SERVICE_ACCOUNTS,OU=ENTRAIDE_ADMINISTRATION,DC=ad,DC=entraide,DC=ma}
       LDAP_BIND_PASSWORD: ${LDAP_BIND_PASSWORD:-}
-      LDAP_USER_FILTER: ${LDAP_USER_FILTER:-(&(objectClass=user)(|(sAMAccountName={0})(userPrincipalName={0})(mail={0})(employeeID={0})))}
-      LDAP_MATRICULE_ATTRIBUTE: ${LDAP_MATRICULE_ATTRIBUTE:-employeeID}
+      LDAP_USER_FILTER: ${LDAP_USER_FILTER:-(&(objectClass=user)(|(sAMAccountName={0})(userPrincipalName={0})(mail={0})(description={0})))}
+      LDAP_MATRICULE_ATTRIBUTE: ${LDAP_MATRICULE_ATTRIBUTE:-description}
       TZ: UTC
     # Résolution des contrôleurs de domaine par les DNS de l'AD
     dns:

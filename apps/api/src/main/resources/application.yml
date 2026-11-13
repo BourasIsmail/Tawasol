@@ -62,8 +62,8 @@ tawassol:
     bind-dn: ${LDAP_BIND_DN:CN=svc_tawassol_ldap,OU=SERVICE_ACCOUNTS,OU=ENTRAIDE_ADMINISTRATION,DC=ad,DC=entraide,DC=ma}
     bind-password: ${LDAP_BIND_PASSWORD:}
     # {0} = identifiant saisi (échappé). A ajuster après le diagnostic de l'annuaire.
-    user-filter: ${LDAP_USER_FILTER:(&(objectClass=user)(|(sAMAccountName={0})(userPrincipalName={0})(mail={0})(employeeID={0})))}
-    matricule-attribute: ${LDAP_MATRICULE_ATTRIBUTE:employeeID}
+    user-filter: ${LDAP_USER_FILTER:(&(objectClass=user)(|(sAMAccountName={0})(userPrincipalName={0})(mail={0})(description={0})))}
+    matricule-attribute: ${LDAP_MATRICULE_ATTRIBUTE:description}
     timeout: 5s
   hierarchy-cache-ttl: 20s
   web-url: ${WEB_URL:http://localhost:3000}

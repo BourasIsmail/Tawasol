@@ -31,7 +31,7 @@ class LdapAuthIT extends IntegrationTestBase {
             ldap.add(new Entry("dn: DC=ad,DC=test", "objectClass: top", "objectClass: domain", "dc: ad"));
             ldap.add(new Entry("dn: OU=USERS,DC=ad,DC=test", "objectClass: top", "objectClass: organizationalUnit", "ou: USERS"));
             ldap.add(new Entry("dn: CN=Alice,OU=USERS,DC=ad,DC=test", "objectClass: top", "objectClass: user", "cn: Alice", "sAMAccountName: alice",
-                    "employeeID: ldap001", "mail: alice@ad.test", "userPassword: Secret-AD-1"));
+                    "description: ldap001", "mail: alice@ad.test", "userPassword: Secret-AD-1"));
             ldap.startListening();
         } catch (Exception e) { throw new ExceptionInInitializerError(e); }
     }
