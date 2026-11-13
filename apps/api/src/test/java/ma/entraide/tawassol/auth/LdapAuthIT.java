@@ -86,4 +86,15 @@ class LdapAuthIT extends IntegrationTestBase {
         send(HttpMethod.POST, "/api/v1/auth/change-password", t, Map.of("currentPassword", "x", "newPassword", "Nouveau-Mdp-12345!")).andExpect(status().isBadRequest());
         send(HttpMethod.GET, "/api/v1/auth/config", null, null).andExpect(status().isOk());
     }
+
+    @Test void rapprochementAdTawassolSansMotDePasse() throws Exception {
+        String t = bearer("secours");
+        String r = send(HttpMethod.GET, "/api/v1/admin/ldap/rapprochement", t, null).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertTrue(r.contains("RAPPROCHE"), r);
+        assertTrue(r.contains("TAWASSOL_SANS_COMPTE_AD"), "le compte local de secours n'a pas de fiche AD");
+        String csv = send(HttpMethod.GET, "/api/v1/admin/ldap/rapprochement.csv", t, null).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertTrue(csv.contains("alice") && csv.contains("ldap001"));
+        assertFalse(csv.toLowerCase().contains("secret"), "aucun mot de passe dans l'export");
+        send(HttpMethod.GET, "/api/v1/admin/ldap/rapprochement.csv", null, null).andExpect(status().isUnauthorized());
+    }
 }

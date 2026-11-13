@@ -152,6 +152,32 @@ public class LdapService {
         return out;
     }
 
+    public record Compte(String sam, String mail, String nom, String matricule, boolean desactive) {}
+
+    /** Tous les comptes utilisateurs de l'OU (recherche paginée). Pour le rapprochement administrateur. */
+    public List<Compte> lister() throws Exception {
+        List<Compte> out = new ArrayList<>();
+        try (LDAPConnection c = connecter()) {
+            c.bind(cfg.bindDn(), cfg.bindPassword());
+            com.unboundid.ldap.sdk.controls.SimplePagedResultsControl page = new com.unboundid.ldap.sdk.controls.SimplePagedResultsControl(500);
+            do {
+                SearchRequest req = new SearchRequest(cfg.baseDn(), SearchScope.SUB, com.unboundid.ldap.sdk.DereferencePolicy.NEVER, 0, 30, false,
+                        Filter.create("(&(objectClass=user)(!(objectClass=computer)))"), "sAMAccountName", "mail", "displayName", "userAccountControl", cfg.matriculeAttribute());
+                req.setControls(page);
+                com.unboundid.ldap.sdk.SearchResult r = c.search(req);
+                for (SearchResultEntry e : r.getSearchEntries()) {
+                    String sam = e.getAttributeValue("sAMAccountName");
+                    if (sam == null) continue;
+                    String m = e.getAttributeValue(cfg.matriculeAttribute());
+                    Integer uac = e.getAttributeValueAsInteger("userAccountControl");
+                    out.add(new Compte(sam, e.getAttributeValue("mail"), e.getAttributeValue("displayName"), m == null ? null : m.trim().toUpperCase(), uac != null && (uac & 2) != 0));
+                }
+                page = com.unboundid.ldap.sdk.controls.SimplePagedResultsControl.get(r);
+            } while (page != null && page.moreResultsToReturn() && (page = new com.unboundid.ldap.sdk.controls.SimplePagedResultsControl(500, page.getCookie())) != null);
+        }
+        return out;
+    }
+
     private LDAPConnection connecter() throws Exception {
         LDAPException derniere = null;
         for (String h : cfg.hosts()) {

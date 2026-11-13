@@ -30,6 +30,24 @@ public class AdminController {
     @org.springframework.web.bind.annotation.GetMapping("/ldap/diagnostic")
     public java.util.List<String> ldapDiagnostic() { return ldapService.diagnostic(); }
 
+    @org.springframework.beans.factory.annotation.Autowired private LdapRapprochementService rapprochement;
+
+    /** Résumé du rapprochement AD / TAWASSOL (comptes par statut). */
+    @org.springframework.web.bind.annotation.GetMapping("/ldap/rapprochement")
+    public java.util.Map<String, Object> ldapRapprochement() throws Exception {
+        var l = rapprochement.calculer();
+        java.util.Map<String, Long> n = new java.util.TreeMap<>();
+        l.forEach(x -> n.merge(x.statut(), 1L, Long::sum));
+        return java.util.Map.of("total", l.size(), "parStatut", n);
+    }
+
+    /** Export CSV complet (données personnelles, sans mot de passe). */
+    @org.springframework.web.bind.annotation.GetMapping(value = "/ldap/rapprochement.csv", produces = "text/csv;charset=UTF-8")
+    public org.springframework.http.ResponseEntity<byte[]> ldapRapprochementCsv() throws Exception {
+        byte[] b = LdapRapprochementService.csv(rapprochement.calculer()).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return org.springframework.http.ResponseEntity.ok().header("Content-Disposition", "attachment; filename=\"rapprochement_ad_tawassol.csv\"").header("Cache-Control", "no-store").body(b);
+    }
+
     /** Exploration de l'annuaire (3 fiches au plus) pour trouver l'attribut qui porte le matricule. */
     @org.springframework.web.bind.annotation.GetMapping("/ldap/exploration")
     public java.util.List<java.util.Map<String, Object>> ldapExploration(@org.springframework.web.bind.annotation.RequestParam String q) {
