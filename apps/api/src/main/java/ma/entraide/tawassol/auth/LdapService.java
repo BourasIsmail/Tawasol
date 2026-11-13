@@ -93,7 +93,14 @@ public class LdapService {
         for (String h : cfg.hosts()) {
             try (LDAPConnection c = open(h)) {
                 c.bind(cfg.bindDn(), cfg.bindPassword());
-                int n = c.search(new SearchRequest(cfg.baseDn(), SearchScope.SUB, com.unboundid.ldap.sdk.DereferencePolicy.NEVER, 5, 5, false, Filter.create("(objectClass=user)"), "sAMAccountName", cfg.matriculeAttribute())).getEntryCount();
+                int n;
+                try {
+                    n = c.search(new SearchRequest(cfg.baseDn(), SearchScope.SUB, com.unboundid.ldap.sdk.DereferencePolicy.NEVER, 5, 5, false, Filter.create("(objectClass=user)"), "sAMAccountName", cfg.matriculeAttribute())).getEntryCount();
+                } catch (com.unboundid.ldap.sdk.LDAPSearchException e) {
+                    // limite de 5 entrées atteinte : la recherche fonctionne, il y en a au moins 5
+                    if (e.getResultCode() != ResultCode.SIZE_LIMIT_EXCEEDED) throw e;
+                    n = e.getEntryCount();
+                }
                 out.add("OK " + h + ":" + cfg.port() + " — liaison du compte de service réussie, recherche dans l'OU : " + n + " entrée(s) lue(s) (limite 5)");
             } catch (Exception e) {
                 out.add("ECHEC " + h + ":" + cfg.port() + " — " + e.getClass().getSimpleName() + " : " + e.getMessage());
