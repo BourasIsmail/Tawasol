@@ -71,7 +71,7 @@ export default function RhDemandes() {
                     </div>
                   </>
                 )}
-                {det.typeCode === 'ATTESTATION' && det.statut === 'approuvee' && <div className="acts"><a className="btn" href={`/api/bff/demandes/${det.id}/attestation`} download><Icon name="file" />{t('rhreq.genPdf')}</a></div>}
+                {det.typeCode === 'ATTESTATION' && det.statut === 'approuvee' && <div className="acts"><a className="btn" href={`/web/bff/demandes/${det.id}/attestation`} download><Icon name="file" />{t('rhreq.genPdf')}</a></div>}
                 <div className="acts"><a className="btn sm" href={`/${locale}/rh/demandes/${det.id}`}>{t('rq.see')}</a><Pill status={det.statut} label={t(`status.${det.statut}`)} /></div>
               </>
             )}

@@ -104,7 +104,7 @@ export default function Imports() {
         {step === 4 && lot && (
           <Card>
             <div className="ban ok" role="status"><div><b>{lot.statut === 'brouillon' ? t('rhimp.importedDraft', { numero: lot.numero }) : t('rhimp.importedDirect', { numero: lot.numero })}</b></div></div>
-            <div className="acts"><Link className="btn pri" href={`/${locale}/rh/lots`}>{t('rhimp.goLots')}</Link><a className="btn" href={`/api/bff/rh/imports/lots/${lot.id}/rapport`} target="_blank" rel="noopener">{t('rhimp.report')}</a><button type="button" className="btn" onClick={reset}>{t('rhimp.newImport')}</button></div>
+            <div className="acts"><Link className="btn pri" href={`/${locale}/rh/lots`}>{t('rhimp.goLots')}</Link><a className="btn" href={`/web/bff/rh/imports/lots/${lot.id}/rapport`} target="_blank" rel="noopener">{t('rhimp.report')}</a><button type="button" className="btn" onClick={reset}>{t('rhimp.newImport')}</button></div>
           </Card>
         )}
       </Page>

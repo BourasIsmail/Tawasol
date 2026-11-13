@@ -31,7 +31,7 @@ export default function Lots() {
               sub={`${l.fichierNom} · ${t('rhlots.lines', { n: l.nbLignes })} · ${t('rhlots.errorsN', { n: l.nbErreurs })} · ${fmtDateTime(locale, l.creeLe)}`}
               right={<>
                 <Pill status={l.statut === 'publie' ? 'approuvee' : l.statut === 'brouillon' ? 'brouillon' : 'annulee'} label={t(`rhlots.${l.statut}`)} />
-                {l.nbErreurs > 0 && <a className="btn sm" href={`/api/bff/rh/imports/lots/${l.id}/rapport`} target="_blank" rel="noopener">{t('rhimp.report')}</a>}
+                {l.nbErreurs > 0 && <a className="btn sm" href={`/web/bff/rh/imports/lots/${l.id}/rapport`} target="_blank" rel="noopener">{t('rhimp.report')}</a>}
                 {l.statut === 'brouillon' && <><button type="button" className="btn sm pri" onClick={() => setConfirm(l.id)}>{t('rhlots.publish')}</button><button type="button" className="btn sm bad" onClick={() => cancel.mutate(l.id)}>{t('rhlots.cancel')}</button></>}
               </>} />
           ))}</Card>

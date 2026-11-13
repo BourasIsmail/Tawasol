@@ -40,7 +40,7 @@ export default function AnalytiqueMissions() {
         </div>
         <div className="g2">
           <Card title={t('mis.byDeleg')}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}><a className="btn sm" href={`/api/bff/missions/export?annee=${annee}`} download><Icon name="down" />Excel</a></div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}><a className="btn sm" href={`/web/bff/missions/export?annee=${annee}`} download><Icon name="down" />Excel</a></div>
             <div className="bars">{q.data.parDelegation.map((l, i) => { const mx = Math.max(1, ...q.data!.parDelegation.map((x) => Number(x.nombre))); return <div key={i}><span>{l.delegation}</span><div className="meter"><i style={{ width: `${(100 * Number(l.nombre)) / mx}%` }} /></div><b>{l.nombre}</b></div>; })}</div>
           </Card>
           <Tableau titre={t('mis.byStatus')} lignes={q.data.parStatut} cle="statut" libelle={(v) => t(`status.${v}`)} />
@@ -55,7 +55,7 @@ export default function AnalytiqueMissions() {
             </dl>
           </Card>
         </div>
-        <div className="acts"><a className="btn" href={`/api/bff/missions/etat-global?annee=${annee}`} download><Icon name="down" />{t('mis.exportGlobal')}</a></div>
+        <div className="acts"><a className="btn" href={`/web/bff/missions/etat-global?annee=${annee}`} download><Icon name="down" />{t('mis.exportGlobal')}</a></div>
         </>
       )}
     </Page>

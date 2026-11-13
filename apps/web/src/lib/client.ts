@@ -11,7 +11,7 @@ const currentLocale = () => (typeof document !== 'undefined' ? document.document
 /** Appelle l'API via le relais du serveur Next (les jetons restent dans des cookies httpOnly). */
 export async function api<T = unknown>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, headers, ...rest } = init;
-  const res = await fetch(`/api/bff/${path.replace(/^\//, '')}`, {
+  const res = await fetch(`/web/bff/${path.replace(/^\//, '')}`, {
     ...rest,
     headers: { ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(headers as Record<string, string>) },
     body: json !== undefined ? JSON.stringify(json) : rest.body,

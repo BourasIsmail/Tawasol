@@ -42,7 +42,7 @@ export default function DetailMission({ params }: { params: Promise<{ id: string
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorBox error={q.error} onRetry={() => q.refetch()} />;
   const m = q.data!;
-  const doc = (type: string) => `/api/bff/missions/${id}/documents/${type}`;
+  const doc = (type: string) => `/web/bff/missions/${id}/documents/${type}`;
   const ordre = m.numeroOrdm ?? m.numeroOrdmLegacy;
   const etat = m.numeroEtat ?? m.numeroEtatLegacy;
   const peutTelecharger = m.actionsPossibles.includes('telecharger');

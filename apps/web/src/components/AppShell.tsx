@@ -102,7 +102,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => { if (isAdmin && !path.startsWith('/admin')) router.replace(`/${locale}/admin/comptes`); }, [isAdmin, path, locale, router]);
 
   async function logout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await fetch('/web/auth/logout', { method: 'POST' });
     window.location.href = `/${locale}/login`;
   }
 

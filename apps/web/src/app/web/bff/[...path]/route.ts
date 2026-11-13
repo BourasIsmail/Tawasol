@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiFetch } from '@/lib/server/session';
 
-// L'authentification passe par /api/auth/* : ces chemins ne sont jamais relayés tels quels.
+// L'authentification passe par /web/auth/* : ces chemins ne sont jamais relayés tels quels.
 const BLOCKED = /^auth\/(login|refresh|logout)$/;
 
 async function relay(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {

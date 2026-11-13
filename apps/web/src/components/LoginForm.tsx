@@ -9,7 +9,7 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [ldap, setLdap] = useState(false);
-  useEffect(() => { fetch('/api/bff/auth/config').then((r) => (r.ok ? r.json() : null)).then((c) => setLdap(Boolean(c?.ldap))).catch(() => undefined); }, []);
+  useEffect(() => { fetch('/web/bff/auth/config').then((r) => (r.ok ? r.json() : null)).then((c) => setLdap(Boolean(c?.ldap))).catch(() => undefined); }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -17,7 +17,7 @@ export function LoginForm() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/web/auth/login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ login: String(data.get('login')), password: String(data.get('password')) }),
       });

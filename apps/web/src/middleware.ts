@@ -15,4 +15,4 @@ export default function middleware(req: NextRequest) {
   return intl(req);
 }
 
-export const config = { matcher: ['/((?!api|_next|.*\\..*).*)'] };
+export const config = { matcher: ['/((?!api|web|_next|.*\\..*).*)'] };

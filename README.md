@@ -73,7 +73,7 @@ La suite couvre notamment les autorisations négatives (un agent ne voit pas un 
 
 ## Espace agent (phase 2)
 
-Fiche et vérification (« Tout est correct » / « Signaler une erreur »), demandes de tous les types avec brouillon, soumission, annulation, historique du circuit et pièces jointes, bulletins (PDF bilingue), primes, crédits, missions, solde de congés, note annuelle et observations, réclamations, documents et annonces ciblés, notifications. Web : `/fr/dashboard`, `/ar/dashboard`. Le navigateur ne voit jamais les jetons : le serveur Next.js les garde dans des cookies `httpOnly` et relaie les appels vers l'API (`/api/bff/*`).
+Fiche et vérification (« Tout est correct » / « Signaler une erreur »), demandes de tous les types avec brouillon, soumission, annulation, historique du circuit et pièces jointes, bulletins (PDF bilingue), primes, crédits, missions, solde de congés, note annuelle et observations, réclamations, documents et annonces ciblés, notifications. Web : `/fr/dashboard`, `/ar/dashboard`. Le navigateur ne voit jamais les jetons : le serveur Next.js les garde dans des cookies `httpOnly` et relaie les appels vers l'API (`/web/bff/*`).
 
 Essai en local sans HTTPS : `COOKIE_SECURE=false` pour le serveur web.
 

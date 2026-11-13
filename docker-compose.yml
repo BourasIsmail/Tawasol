@@ -39,6 +39,8 @@ services:
       TAWASSOL_ADMIN_INITIAL_PASSWORD: ${TAWASSOL_ADMIN_INITIAL_PASSWORD:-}
       TAWASSOL_DEMO_PASSWORD: ${TAWASSOL_DEMO_PASSWORD:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      # Adresse publique du site : liens des e-mails et des QR de vérification
+      WEB_URL: ${WEB_URL:-http://localhost:3000}
       OPENAPI_ENABLED: ${OPENAPI_ENABLED:-false}
       STORAGE_PATH: /data/files
       # Authentification par l'annuaire Active Directory (LDAPS). Le mot de passe du compte de service ne vit QUE dans .env.

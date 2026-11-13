@@ -28,7 +28,7 @@ function Detail({ id }: { id: string }) {
   const del = useMutation({ mutationFn: () => api(`demandes/${id}`, { method: 'DELETE' }), onSuccess: () => router.push(`/${locale}/demandes`) });
   async function open(pid: string) {
     const { url } = await api<{ url: string }>(`demandes/${id}/pieces-jointes/${pid}/lien`);
-    window.open(`/api/bff${url.replace('/api/v1', '')}`, '_blank', 'noopener');
+    window.open(`/web/bff${url.replace('/api/v1', '')}`, '_blank', 'noopener');
   }
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorBox error={q.error} onRetry={() => q.refetch()} />;
@@ -58,7 +58,7 @@ function Detail({ id }: { id: string }) {
             <div><dt>{t('dem.attachments')}</dt><dd>{d.piecesJointes.length ? d.piecesJointes.map((p) => <button key={p.id} type="button" className="linkbtn" onClick={() => open(p.id)}>{p.nomFichier}</button>) : t('common.none')}</dd></div>
           </dl>
           {d.typeCode === 'ATTESTATION' && d.statut === 'approuvee' && (
-            <div className="acts"><a className="btn pri" href={`/api/bff/demandes/${id}/attestation`} download>{t('dem.attestationPdf')}</a></div>
+            <div className="acts"><a className="btn pri" href={`/web/bff/demandes/${id}/attestation`} download>{t('dem.attestationPdf')}</a></div>
           )}
           {(submit.error || cancel.error) && <ErrorBox error={submit.error ?? cancel.error} />}
           <div className="acts">

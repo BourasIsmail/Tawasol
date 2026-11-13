@@ -34,7 +34,7 @@ export default function RhDemande({ params }: { params: Promise<{ id: string }> 
   const nm = locale === 'ar' ? `${d.agent.prenomAr} ${d.agent.nomAr}` : `${d.agent.prenomFr} ${d.agent.nomFr}`;
   async function open(pid: string) {
     const { url } = await api<{ url: string }>(`demandes/${id}/pieces-jointes/${pid}/lien`).catch(() => ({ url: '' }));
-    if (url) window.open(`/api/bff${url.replace('/api/v1', '')}`, '_blank', 'noopener');
+    if (url) window.open(`/web/bff${url.replace('/api/v1', '')}`, '_blank', 'noopener');
   }
   return (
     <Page title={`${d.typeLibelle} · ${nm}`} sub={d.numero ? <span className="mono">{d.numero}</span> : undefined} actions={<Pill status={d.statut} label={t(`status.${d.statut}`)} />}>

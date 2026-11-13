@@ -13,7 +13,7 @@ export default function ChangePassword() {
   const [error, setError] = useState<string | null>(null);
   async function submit() {
     setError(null);
-    const res = await fetch('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: current, newPassword: state.value }) });
+    const res = await fetch('/web/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: current, newPassword: state.value }) });
     if (res.ok) {
       const { role } = (await res.json()) as { role: string };
       window.location.href = `/${locale}/${role === 'responsable' ? 'responsable/dashboard' : role === 'rh' ? 'rh/dashboard' : 'dashboard'}`;

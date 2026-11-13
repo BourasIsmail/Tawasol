@@ -16,7 +16,7 @@ function Form() {
   const [error, setError] = useState<string | null>(null);
   async function submit() {
     setError(null);
-    const res = await fetch('/api/bff/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, newPassword: state.value }) });
+    const res = await fetch('/web/bff/auth/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, newPassword: state.value }) });
     if (res.ok) { setDone(true); return; }
     const body = (await res.json().catch(() => null)) as { code?: string } | null;
     setError(body?.code && t.has(`errors.${body.code}`) ? body.code : 'generic');

@@ -16,7 +16,7 @@ export default function Forgot() {
     e.preventDefault();
     setBusy(true); setError(false);
     const login = String(new FormData(e.currentTarget).get('login'));
-    const res = await fetch('/api/bff/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ login }) }).catch(() => null);
+    const res = await fetch('/web/bff/auth/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ login }) }).catch(() => null);
     setBusy(false);
     if (res && (res.ok || res.status === 204)) setSent(true); else setError(true);
   }

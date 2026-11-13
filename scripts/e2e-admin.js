@@ -82,7 +82,7 @@ const B = 'http://localhost:3000';
     await a.waitForURL(/dashboard/);
     await a.goto(B + '/fr/admin/comptes');
     await a.waitForSelector('[role=alert]');
-    const r = await c3.request.get(B + '/api/bff/admin/utilisateurs');
+    const r = await c3.request.get(B + '/web/bff/admin/utilisateurs');
     if (r.status() !== 403) throw new Error('API ' + r.status());
   });
   await p.goto(B + '/fr/admin/comptes');

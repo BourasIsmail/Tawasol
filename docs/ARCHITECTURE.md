@@ -75,3 +75,20 @@ Missions et indemnités, carrière et avancement, PDF officiels numérotés avec
 
 Schéma : migrations V10 à V16 (barèmes datés, circuit et numéros, rôles et permissions, numéros hérités, statut finalisée, archive, documents officiels).
 
+
+## Publication derrière un relais HTTPS (ex. https://tawassol2.entraide.ma)
+
+Deux services : le site web (conteneur `web`, port `WEB_PORT`) et l'API (conteneur `api`, port 8080).
+
+| Chemin public | Destination |
+|---|---|
+| `/api/*` | API Spring (`api:8080`) : l'API vit sous `/api/v1/…` |
+| tout le reste, dont `/web/*` | site web (`web:3000`) |
+
+Les routes internes du site (connexion, relais authentifié) sont sous **`/web/auth/*` et `/web/bff/*`** : elles ne doivent jamais être envoyées à l'API.
+Le relais doit conserver l'en-tête `Host` d'origine et transmettre `X-Forwarded-For` / `X-Forwarded-Proto`. Exemple nginx :
+
+```nginx
+location /api/ { proxy_pass http://IP_VM:8080; proxy_set_header Host $host; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
+location /     { proxy_pass http://IP_VM:80;   proxy_set_header Host $host; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
+```
