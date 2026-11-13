@@ -66,9 +66,9 @@ class DemandeWorkflowIT extends IntegrationTestBase {
 
     @Test void soldeTientCompteDesDemandesDejaSoumises() throws Exception {
         // dates relatives à aujourd'hui : une période passée ne réserve plus de jours (H-CONGE-4)
-        LocalDate lundi = LocalDate.now().plusDays(40);
+        // premier lundi de février de l'an prochain : futur, hors jours fériés, et les 10 jours restent dans la même année
+        LocalDate lundi = LocalDate.of(LocalDate.now().getYear() + 1, 2, 1);
         lundi = lundi.plusDays((8 - lundi.getDayOfWeek().getValue()) % 7);
-        if (lundi.plusDays(9).getYear() != lundi.getYear()) lundi = LocalDate.of(lundi.getYear() + 1, 1, 1).plusDays((8 - LocalDate.of(lundi.getYear() + 1, 1, 1).getDayOfWeek().getValue()) % 7 + 7);
         jdbc.update("INSERT INTO solde_conge (personnel_id, annee, droit, pris, reporte) VALUES (?, ?, 5.0, 0, 0)", pa, lundi.getYear());
         submit(ta, leave(ta, lundi.toString(), lundi.plusDays(3).toString()));
         send(HttpMethod.POST, "/api/v1/demandes/" + leave(ta, lundi.plusDays(7).toString(), lundi.plusDays(9).toString()) + "/soumettre", ta, null)

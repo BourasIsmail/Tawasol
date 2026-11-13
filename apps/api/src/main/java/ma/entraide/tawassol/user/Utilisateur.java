@@ -20,6 +20,7 @@ public class Utilisateur {
     @Column(name = "est_actif") private boolean estActif;
     @Column(name = "derniere_cnx") private LocalDateTime derniereCnx;
     @Column(name = "doit_changer_mdp") private boolean doitChangerMdp;
+    @Column(name = "auth_locale") private boolean authLocale;
     @Column(name = "echecs_connexion") private int echecsConnexion;
     @Column(name = "verrouille_jusqua") private LocalDateTime verrouilleJusqua;
 
@@ -36,6 +37,7 @@ public class Utilisateur {
     public void setDerniereCnx(LocalDateTime v) { this.derniereCnx = v; }
     public boolean isDoitChangerMdp() { return doitChangerMdp; }
     public void setDoitChangerMdp(boolean v) { this.doitChangerMdp = v; }
+    public boolean isAuthLocale() { return authLocale; }
     public int getEchecsConnexion() { return echecsConnexion; }
     public void setEchecsConnexion(int v) { this.echecsConnexion = v; }
     public LocalDateTime getVerrouilleJusqua() { return verrouilleJusqua; }

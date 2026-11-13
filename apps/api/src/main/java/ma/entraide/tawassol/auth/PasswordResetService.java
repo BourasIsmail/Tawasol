@@ -36,17 +36,19 @@ public class PasswordResetService {
     private final AuditService audit;
     private final TawassolProperties props;
     private final Clock clock;
+    private final LdapService ldap;
 
     public PasswordResetService(UtilisateurRepository users, RefreshTokenRepository tokens, JdbcTemplate jdbc, PasswordService passwords, MailService mail,
-                                ParametreService params, AuditService audit, TawassolProperties props, Clock clock) {
+                                ParametreService params, AuditService audit, TawassolProperties props, Clock clock, LdapService ldap) {
         this.users = users; this.tokens = tokens; this.jdbc = jdbc; this.passwords = passwords; this.mail = mail;
-        this.params = params; this.audit = audit; this.props = props; this.clock = clock;
+        this.params = params; this.audit = audit; this.props = props; this.clock = clock; this.ldap = ldap;
     }
 
     @Transactional
     public void request(String login) {
         Utilisateur u = users.findByLogin(login).filter(Utilisateur::isEstActif).orElse(null);
         if (u == null || u.getPersonnelId() == null) return;
+        if (ldap.actif() && !u.isAuthLocale()) return;   // mot de passe géré par l'annuaire
         List<String> emails = jdbc.queryForList("SELECT email FROM personnel WHERE id = ? AND email IS NOT NULL AND email <> ''", String.class, u.getPersonnelId());
         if (emails.isEmpty()) return;
         byte[] raw = new byte[32];

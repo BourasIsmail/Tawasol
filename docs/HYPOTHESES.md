@@ -108,3 +108,15 @@ Hypothèses prises en Phase 0 faute de source. Chacune est à confirmer.
 - H-HISTORIQUE-2 : le fichier de notes complémentaire (2018 à 2020) ajoute les notes absentes ; quand une note existe déjà avec une valeur différente (2 cas), la valeur déjà reprise est gardée et le conflit est signalé. Les notes vides (33) et les matricules absents de la liste du personnel (agents sortis) sont ignorés.
 - H-HISTORIQUE-3 : la date d'embauche du fichier « fonctionnaire » devient la date de recrutement si elle est plausible (de 1960 à aujourd'hui) et sans conflit. Un matricule qui a deux dates différentes n'en reçoit aucune (4 cas), de même qu'une date absente ou invalide (19 cas) : liste remise à la RH. Une date déjà saisie n'est jamais écrasée. Les matricules sont comparés en majuscules (le fichier contient des minuscules).
 - H-HISTORIQUE-4 : le fichier « fonctionnaire » contient aussi une adresse e-mail pour chaque ligne et 91 noms de fichiers photo. **Ils ne sont pas repris** : les adresses servent aux envois réels (réinitialisation de mot de passe, notifications), les photos n'existent pas en fichiers. À valider avant tout import.
+
+## H-LDAP — Authentification par l'annuaire Active Directory
+
+- Quand `LDAP_ENABLED=true`, le mot de passe de chaque compte est celui de l'annuaire (LDAPS 636, contrôleurs dc1 puis dc2 en secours). TAWASSOL ne stocke ni ne journalise ce mot de passe.
+- Le compte de service `svc_tawassol_ldap` ne sert qu'à **rechercher** l'utilisateur dans l'OU `OU=USERS,OU=Entraide Nationale` ; la vérification se fait par liaison (bind) avec le DN de l'utilisateur et le mot de passe saisi.
+- Rapprochement avec le compte TAWASSOL : par l'identifiant saisi (le matricule), sinon par l'attribut AD `LDAP_MATRICULE_ATTRIBUTE` (par défaut `employeeID`). **A CONFIRMER** : l'attribut qui porte le matricule dans votre AD, et ce que les agents tapent à la connexion. Diagnostic admin : `GET /api/v1/admin/ldap/diagnostic` et `GET /api/v1/admin/ldap/recherche?identifiant=...`. Le filtre se règle par `LDAP_USER_FILTER`.
+- Les comptes TAWASSOL (rôles, périmètres) restent la source des droits : un utilisateur de l'annuaire sans compte TAWASSOL est refusé.
+- Compte `admin` : reste local (`auth_locale = 1`, secours si l'annuaire est indisponible). Tout compte peut être rendu local par l'administrateur en base.
+- Avec LDAP actif : changement de mot de passe et « mot de passe oublié » sont désactivés pour les comptes d'annuaire (à faire dans l'AD) ; plus de changement imposé à la première connexion ; le mot de passe initial « password » n'ouvre plus rien.
+- Verrouillage local conservé (5 échecs, 15 min) en plus de celui de l'AD. Si l'annuaire est injoignable : message « Annuaire indisponible » (503), sans repli sur un mot de passe local (sauf comptes locaux).
+- Certificat : vérifié. Si l'AD utilise une autorité interne, déposer son certificat PEM dans `./certs` et définir `LDAP_CA_FILE=/certs/ad-ca.pem`.
+- Le mot de passe du compte de service vit uniquement dans le `.env` de la VM (jamais dans git). Il a transité par la conversation : le renouveler.

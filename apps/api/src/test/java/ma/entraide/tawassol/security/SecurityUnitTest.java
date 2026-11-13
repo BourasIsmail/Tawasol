@@ -15,7 +15,7 @@ class SecurityUnitTest {
 
     static TawassolProperties props(String secret, int rate) {
         return new TawassolProperties(new TawassolProperties.Security(secret, Duration.ofMinutes(15), Duration.ofDays(30), 5,
-                Duration.ofMinutes(15), rate, 12), new TawassolProperties.Cors(List.of()), new TawassolProperties.Bootstrap("", ""), null, null);
+                Duration.ofMinutes(15), rate, 12), new TawassolProperties.Cors(List.of()), new TawassolProperties.Bootstrap("", ""), null, null, null);
     }
 
     @Test void secretTropCourtRefuse() {

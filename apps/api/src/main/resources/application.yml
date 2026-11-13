@@ -52,6 +52,19 @@ tawassol:
     password-min-length: 12
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+  ldap:
+    enabled: ${LDAP_ENABLED:false}
+    hosts: ${LDAP_HOSTS:dc1.ad.entraide.ma,dc2.ad.entraide.ma}
+    port: ${LDAP_PORT:636}
+    tls: ${LDAP_TLS:true}
+    ca-file: ${LDAP_CA_FILE:}
+    base-dn: ${LDAP_BASE_DN:OU=USERS,OU=Entraide Nationale,DC=ad,DC=entraide,DC=ma}
+    bind-dn: ${LDAP_BIND_DN:CN=svc_tawassol_ldap,OU=SERVICE_ACCOUNTS,OU=ENTRAIDE_ADMINISTRATION,DC=ad,DC=entraide,DC=ma}
+    bind-password: ${LDAP_BIND_PASSWORD:}
+    # {0} = identifiant saisi (échappé). A ajuster après le diagnostic de l'annuaire.
+    user-filter: ${LDAP_USER_FILTER:(&(objectClass=user)(|(sAMAccountName={0})(userPrincipalName={0})(mail={0})(employeeID={0})))}
+    matricule-attribute: ${LDAP_MATRICULE_ATTRIBUTE:employeeID}
+    timeout: 5s
   hierarchy-cache-ttl: 20s
   web-url: ${WEB_URL:http://localhost:3000}
   storage:

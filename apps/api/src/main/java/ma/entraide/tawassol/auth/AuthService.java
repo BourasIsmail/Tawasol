@@ -36,17 +36,41 @@ public class AuthService {
     private final AuditService audit;
     private final TawassolProperties props;
     private final Clock clock;
+    private final LdapService ldap;
 
     public AuthService(UtilisateurRepository users, RefreshTokenRepository tokens, PasswordService passwords, JwtService jwt,
-                       AuditService audit, TawassolProperties props, Clock clock) {
+                       AuditService audit, TawassolProperties props, Clock clock, LdapService ldap) {
         this.users = users; this.tokens = tokens; this.passwords = passwords; this.jwt = jwt;
-        this.audit = audit; this.props = props; this.clock = clock;
+        this.audit = audit; this.props = props; this.clock = clock; this.ldap = ldap;
     }
 
     @Transactional(noRollbackFor = ApiException.class)
     public TokenResponse login(String login, String password, String appareil, String ip) {
         LocalDateTime now = LocalDateTime.now(clock);
         Utilisateur u = users.findByLogin(login).orElse(null);
+        LdapService.Identite annuaire = null;
+        if (ldap.actif() && (u == null || !u.isAuthLocale())) {
+            // Authentification par l'annuaire : le compte TAWASSOL est retrouvé par l'identifiant saisi, sinon par le matricule de l'annuaire.
+            LdapService.Resultat r = ldap.authentifier(login, password);
+            if (r.statut() == LdapService.Statut.INDISPONIBLE)
+                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "DIRECTORY_UNAVAILABLE", "Annuaire indisponible, réessayez plus tard");
+            annuaire = r.identite();
+            if (u == null && annuaire != null && annuaire.matricule() != null) u = users.findByLogin(annuaire.matricule()).orElse(null);
+            if (u != null && u.isAuthLocale()) u = null;   // un compte local ne s'ouvre pas avec un mot de passe d'annuaire
+            if (u == null || !u.isEstActif() || r.statut() != LdapService.Statut.OK) {
+                audit.record(u == null ? null : u.getId(), "LOGIN_FAIL", "utilisateur", u == null ? null : u.getId(), null, null);
+                if (u != null && r.statut() == LdapService.Statut.MOT_DE_PASSE) compter(u, now);
+                throw badCredentials();
+            }
+            if (u.getVerrouilleJusqua() != null && u.getVerrouilleJusqua().isAfter(now))
+                throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "ACCOUNT_TEMPORARILY_LOCKED", "Compte temporairement verrouillé. Réessayez plus tard.");
+            u.setEchecsConnexion(0);
+            u.setVerrouilleJusqua(null);
+            u.setDerniereCnx(now);
+            u.setDoitChangerMdp(false);
+            audit.record(u.getId(), "LOGIN_OK_LDAP", "utilisateur", u.getId(), null, null);
+            return issue(u, UUID.randomUUID().toString(), appareil, ip);
+        }
         if (u == null || !u.isEstActif()) {
             passwords.burn(password);
             audit.record(null, "LOGIN_FAIL", "utilisateur", null, null, null);
@@ -58,14 +82,7 @@ public class AuthService {
                     "Compte temporairement verrouillé. Réessayez plus tard.");
         }
         if (!passwords.matches(password, u.getMotDePasse())) {
-            int echecs = u.getEchecsConnexion() + 1;
-            if (echecs >= props.security().maxFailedAttempts()) {
-                u.setVerrouilleJusqua(now.plus(props.security().lockDuration()));
-                u.setEchecsConnexion(0);
-                audit.record(u.getId(), "ACCOUNT_LOCKED", "utilisateur", u.getId(), null, null);
-            } else {
-                u.setEchecsConnexion(echecs);
-            }
+            compter(u, now);
             audit.record(u.getId(), "LOGIN_FAIL", "utilisateur", u.getId(), null, null);
             throw badCredentials();
         }
@@ -75,6 +92,17 @@ public class AuthService {
         if (passwords.needsUpgrade(u.getMotDePasse())) u.setMotDePasse(passwords.hash(password));
         audit.record(u.getId(), "LOGIN_OK", "utilisateur", u.getId(), null, null);
         return issue(u, UUID.randomUUID().toString(), appareil, ip);
+    }
+
+    private void compter(Utilisateur u, LocalDateTime now) {
+        int echecs = u.getEchecsConnexion() + 1;
+        if (echecs >= props.security().maxFailedAttempts()) {
+            u.setVerrouilleJusqua(now.plus(props.security().lockDuration()));
+            u.setEchecsConnexion(0);
+            audit.record(u.getId(), "ACCOUNT_LOCKED", "utilisateur", u.getId(), null, null);
+        } else {
+            u.setEchecsConnexion(echecs);
+        }
     }
 
     @Transactional(noRollbackFor = ApiException.class)
@@ -111,6 +139,8 @@ public class AuthService {
     @Transactional(noRollbackFor = ApiException.class)
     public TokenResponse changePassword(String userId, String current, String next, String ip) {
         Utilisateur u = users.findById(userId).orElseThrow(ApiException::notFound);
+        if (ldap.actif() && !u.isAuthLocale())
+            throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_MANAGED_BY_DIRECTORY", "Le mot de passe est géré par l'annuaire de l'Entraide Nationale");
         if (!passwords.matches(current, u.getMotDePasse())) {
             audit.record(userId, "PASSWORD_CHANGE_FAIL", "utilisateur", userId, null, null);
             throw new ApiException(HttpStatus.BAD_REQUEST, "CURRENT_PASSWORD_INVALID", "Mot de passe actuel incorrect");

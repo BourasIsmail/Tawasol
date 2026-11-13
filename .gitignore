@@ -17,3 +17,4 @@ apps/api/target/
 # artefacts des scripts E2E
 apps/web/*.png
 apps/web/*.pdf
+certs/

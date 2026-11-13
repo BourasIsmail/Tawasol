@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 
 export function LoginForm() {
@@ -8,6 +8,8 @@ export function LoginForm() {
   const locale = useLocale();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ldap, setLdap] = useState(false);
+  useEffect(() => { fetch('/api/bff/auth/config').then((r) => (r.ok ? r.json() : null)).then((c) => setLdap(Boolean(c?.ldap))).catch(() => undefined); }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,7 +41,9 @@ export function LoginForm() {
       <label><span>{t('login.password')}</span><input name="password" type="password" autoComplete="current-password" required /></label>
       {error && <p role="alert" className="err">{t(`errors.${error}`)}</p>}
       <button type="submit" className="btn pri full" disabled={busy}>{t('login.submit')}</button>
-      <a href={`/${locale}/forgot`} style={{ textAlign: 'center', color: 'var(--brand-text)' }}>{t('login.forgot')}</a>
+      {ldap
+        ? <small className="muted" style={{ textAlign: 'center' }}>{t('login.ldapNote')}</small>
+        : <a href={`/${locale}/forgot`} style={{ textAlign: 'center', color: 'var(--brand-text)' }}>{t('login.forgot')}</a>}
       <small className="muted" style={{ textAlign: 'center' }}>{t('login.lockNote')}</small>
     </form>
   );

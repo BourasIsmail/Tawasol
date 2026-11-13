@@ -16,12 +16,17 @@ public class AuthController {
     private final AuthService auth;
     private final LoginRateLimiter limiter;
     private final PasswordResetService reset;
+    private final LdapService ldap;
 
-    public AuthController(AuthService auth, LoginRateLimiter limiter, PasswordResetService reset) {
+    public AuthController(AuthService auth, LoginRateLimiter limiter, PasswordResetService reset, LdapService ldap) {
         this.auth = auth;
         this.limiter = limiter;
-        this.reset = reset;
+        this.ldap = ldap; this.reset = reset;
     }
+
+    /** Public : indique à l'écran de connexion si les mots de passe sont gérés par l'annuaire. */
+    @org.springframework.web.bind.annotation.GetMapping("/config")
+    public java.util.Map<String, Object> config() { return java.util.Map.of("ldap", ldap.actif()); }
 
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody LoginRequest req, HttpServletRequest http) {

@@ -8,6 +8,7 @@
     "ar": "العربية"
   },
   "login": {
+    "ldapNote": "Utilisez votre identifiant et mot de passe de l'annuaire (session Windows).",
     "title": "Connexion",
     "login": "Matricule ou identifiant",
     "password": "Mot de passe",
@@ -265,6 +266,8 @@
     "new": "Nouveau"
   },
   "errors": {
+    "DIRECTORY_UNAVAILABLE": "Annuaire indisponible. Réessayez plus tard.",
+    "PASSWORD_MANAGED_BY_DIRECTORY": "Votre mot de passe est géré par l'annuaire de l'Entraide Nationale.",
     "generic": "Une erreur est survenue. Réessayez.",
     "BAD_CREDENTIALS": "Identifiant ou mot de passe incorrect.",
     "ACCOUNT_TEMPORARILY_LOCKED": "Compte temporairement verrouillé. Réessayez plus tard.",

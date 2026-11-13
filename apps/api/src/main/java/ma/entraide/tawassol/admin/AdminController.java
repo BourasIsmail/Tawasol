@@ -24,6 +24,18 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/admin")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
+    @org.springframework.beans.factory.annotation.Autowired private ma.entraide.tawassol.auth.LdapService ldapService;
+
+    /** Diagnostic de l'annuaire (contrôleurs joignables, compte de service). Aucun secret n'est renvoyé. */
+    @org.springframework.web.bind.annotation.GetMapping("/ldap/diagnostic")
+    public java.util.List<String> ldapDiagnostic() { return ldapService.diagnostic(); }
+
+    /** Cherche un identifiant dans l'annuaire et montre l'attribut matricule lu : aide à valider le rapprochement avec les comptes. */
+    @org.springframework.web.bind.annotation.GetMapping("/ldap/recherche")
+    public java.util.Map<String, Object> ldapRecherche(@org.springframework.web.bind.annotation.RequestParam String identifiant) {
+        return ldapService.recherche(identifiant);
+    }
+
     public record ModificationCompte(String roleId, Boolean estActif) {}
     public record Identifiants(String login, String email) {}
     public record Designation(String personnelId, String type, String cibleId, java.time.LocalDate dateDebut) {}
