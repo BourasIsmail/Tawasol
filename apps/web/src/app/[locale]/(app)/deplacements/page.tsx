@@ -14,15 +14,17 @@ import { MISSION_STATUTS, useDroits, type Mission } from '@/lib/missions';
 export default function Deplacements() {
   const t = useTranslations();
   const locale = useLocale();
-  const initial = useSearchParams().get('statut') ?? '';
+  const params = useSearchParams();
+  const initial = params.get('statut') ?? '';
+  const mes = params.get('mes') === '1';
   const [statut, setStatut] = useState(initial);
   useEffect(() => setStatut(initial), [initial]);
   const droits = useDroits();
-  const q = useQuery({ queryKey: ['missions', statut], queryFn: () => api<{ content: Mission[] }>(`missions?size=50${statut ? `&statut=${statut}` : ''}`) });
+  const q = useQuery({ queryKey: ['missions', statut, mes], queryFn: () => api<{ content: Mission[] }>(`missions?size=50${mes ? '&mes=true' : ''}${statut ? `&statut=${statut}` : ''}`) });
   const d = droits.data;
   const cell = !!d?.valider && statut === 'validee_responsable';
   const an = useQuery({ queryKey: ['mission-analytique-cell'], queryFn: () => api<{ parStatut: { statut: string; nombre: number }[]; anomalies: Record<string, number | null> }>(`missions/analytique?annee=${new Date().getFullYear()}`), enabled: !!d?.analytics });
-  const pure = !!d && !d.analytics && !d.valider && !d.validerNiveau1 && !d.validerPaiement && !d.saisirPerimetre && !d.etats;
+  const pure = mes || !!d && !d.analytics && !d.valider && !d.validerNiveau1 && !d.validerPaiement && !d.saisirPerimetre && !d.etats;
   return (
     <Page title={pure ? t('mis.mine') : cell ? t('mis.toCheck') : t('mis.title')} sub={pure ? undefined : t('mis.sub')} actions={<>
       {droits.data?.analytics && <Link className="btn" href={`/${locale}/deplacements/analytique`}>{t('mis.analytics')}</Link>}

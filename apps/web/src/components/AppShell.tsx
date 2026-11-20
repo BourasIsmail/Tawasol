@@ -16,7 +16,7 @@ const AGENT: Item[] = [
   { id: 'dashboard', icon: 'home', href: '/dashboard', m: true },
   { id: 'fiche', icon: 'user', href: '/fiche' },
   { id: 'demandes', icon: 'file', href: '/demandes', m: true },
-  { id: 'missions', icon: 'plane', href: '/deplacements' },
+  { id: 'missions', icon: 'plane', href: '/deplacements?mes=1' },
   { id: 'paie', icon: 'wallet', href: '/paie', m: true },
   { id: 'note', icon: 'star', href: '/note' },
   { id: 'reclamations', icon: 'alert', href: '/reclamations' },

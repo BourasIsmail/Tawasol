@@ -44,9 +44,9 @@ public class MissionController {
     }
 
     @GetMapping
-    public PageResult<MissionDto> list(@AuthenticationPrincipal AuthenticatedUser u, @RequestParam(required = false) String statut, @RequestParam(required = false) String personnelId,
+    public PageResult<MissionDto> list(@AuthenticationPrincipal AuthenticatedUser u, @RequestParam(required = false) String statut, @RequestParam(required = false) String personnelId, @RequestParam(defaultValue = "false") boolean mes,
                                        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
-        return service.list(u, statut, personnelId, Math.max(page, 0), Math.max(1, Math.min(size, 100)));
+        return service.list(u, statut, mes && u.personnelId() != null ? u.personnelId() : personnelId, Math.max(page, 0), Math.max(1, Math.min(size, 100)));
     }
 
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
